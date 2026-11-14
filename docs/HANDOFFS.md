@@ -63,9 +63,9 @@ For B23, run the experiment exactly as docs/VALIDATION.md section 2 describes an
 Stop only when every lane B item is merged, or at the gate G5 feature freeze (09:00 Sunday). Finish by writing a short summary at the top of docs/status/lane-b.md: what is merged, what is not, the G2 verdict for each clause, and what a human must do next.
 ```
 
-## C. Aryan — interface (Pro) — CLOSED
+## C. Aryan — interface (Pro) — SUPERSEDED
 
-**Do not run this prompt again.** The first interface was rejected on 15 November and the rebuild belongs to lane D (prompt D2 below).
+**Do not run this prompt again.** The first interface was rejected on 15 November. Aryan runs prompt C2 below.
 
 ```text
 You are running lane C of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going. This lane is everything a judge sees and touches, and the interactive demo is the product.
@@ -117,24 +117,24 @@ If an item is truly blocked, open an issue whose title starts with BLOCKED:, the
 Stop only when every lane D item is merged, or at the gate G5 feature freeze (09:00 Sunday). Finish by writing a short summary at the top of docs/status/lane-d.md: what is merged, what is not, which figures have a source and which do not, and what a human must do next.
 ```
 
-## D2. Aaron — rebuild the interface as a map (Pro)
+## C2. Aryan — redesign and rebuild the interface as a map (Pro)
 
-Added about 01:00 on Sunday 15 November. Run this one now. It replaces prompt D for the rest of the hackathon.
+Added about 01:00 on Sunday 15 November. Run this one now. It replaces prompt C. Aaron keeps prompt D.
 
 ```text
-You are running lane D of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going.
+You are running lane C of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going.
 
-The project is a browser simulation of one neighbourhood transformer with 200 rickshaw chargers that spread their own load by watching only their own socket voltage. The team rejected the first interface. Your job now is to rebuild it as a minimal top-down 2D map. The interface used to belong to lane C; it is yours now.
+The project is a browser simulation of one neighbourhood transformer with 200 rickshaw chargers that spread their own load by watching only their own socket voltage. The team rejected the first interface (items B40 to B43). Your job now is to redesign and rebuild it as a minimal top-down 2D map.
 
 Setup: fetch origin and check out a fresh origin/build. The working branch is build, not main: every branch starts from origin/build and every PR targets build. Never push to main.
 
-Read, in this order: AGENTS.md, docs/UI.md in full, item B65 in docs/BUILD.md section 3, src/contracts.ts in full, docs/CONTRACTS.md sections 7 to 9, and docs/VALIDATION.md rows V08 and V09. Then read the existing code under src/ui/ and tests/ui/, because you are replacing parts of it and keeping others.
+Read, in this order: AGENTS.md, docs/UI.md in full, item B45 in docs/BUILD.md section 3, src/contracts.ts in full, docs/CONTRACTS.md sections 7 to 9, and docs/VALIDATION.md rows V08 and V09. Then read the existing code under src/ui/ and tests/ui/, because you are replacing parts of it and keeping others.
 
-Resume check: read docs/status/lane-d.md, git log and the open PRs. If a lane-d/B65 branch or PR exists, carry on from it.
+Resume check: read docs/status/lane-c.md, git log and the open PRs. If a lane-c/B45 branch or PR exists, carry on from it.
 
-Do item B65, then stop. Branch lane-d/B65-map-ui from fresh origin/build. Work in small commits and push often. You may split it into two or three PRs (for example: the map and its layout function; then the numbers, evidence strip and action bar; then removal of unused files), each merged when green. For each PR: run npm run typecheck, npm test and npm run build, open the PR against build, squash-merge it yourself once CI is green, and add an entry to docs/status/lane-d.md (files changed, commands run and their real output, checks not run). If your Claude refuses gh pr merge, or GitHub refuses the merge, do not work around it: write BLOCKED and the exact message in the status file, branch the next part from the unmerged branch, and keep going.
+Do item B45, then stop. Branch lane-c/B45-map-ui from fresh origin/build. Work in small commits and push often. You may split it into two or three PRs (for example: the map and its layout function; then the numbers, evidence strip and action bar; then removal of unused files), each merged when green. For each PR: run npm run typecheck, npm test and npm run build, open the PR against build, squash-merge it yourself once CI is green, and add an entry to docs/status/lane-c.md (files changed, commands run and their real output, checks not run). If your Claude refuses gh pr merge, or GitHub refuses the merge, do not work around it: write BLOCKED and the exact message in the status file, branch the next part from the unmerged branch, and keep going.
 
-You own: index.html, src/ui/**, public/**, tests/ui/**, docs/UI.md, and everything lane D owned before. Do not edit anything else. src/main.ts belongs to lane A and already calls mountApp from src/ui/index.ts; keep that export and its type.
+You own: index.html, src/ui/**, public/**, tests/ui/**, docs/UI.md and docs/status/lane-c.md. Do not edit anything else. src/main.ts belongs to lane A and already calls mountApp from src/ui/index.ts; keep that export and its type.
 
 How to build it: keep the run loop in src/ui/app.ts, the fake simulation and dev page in src/ui/dev/, and the chart and time helpers where they still fit. Replace the street view with your map. Replace the styling, scoreboard, legend and controls to match your design. The map layout (charger id and feeder to x and y) is a pure function with its own tests. Develop against the fake simulation on the dev page, then check the real page.
 
@@ -144,7 +144,7 @@ You design it. docs/UI.md sections 1, 7 and 8 are requirements: a minimal top-do
 
 Before the last PR, run the built page in a browser at 1920 by 1080 through a real night that includes a power cut, and attach a screenshot to the PR. If you cannot take one, say so in the status file under checks not run.
 
-Stop when B65 is merged. Do not start B66; the team will look at the result and give changes. Finish by updating the summary at the top of docs/status/lane-d.md: what is merged, what is not, and what a human must do next.
+Stop when B45 is merged. Do not start B46; the team will look at the result and give changes. Finish by updating the summary at the top of docs/status/lane-c.md: what is merged, what is not, and what a human must do next.
 ```
 
 ## If a session stops early

@@ -1,8 +1,8 @@
 # Interface specification — the map MVP
 
-**Status:** written about 01:00 on Sunday 15 November 2026. It replaces the first interface (BUILD B40 to B44), which the team rejected. Nothing here is built. This is a first version to react to: build it plainly, then the team iterates.
-**Owner:** lane D (Aaron). Lane C's interface items are closed.
-**Who designs it:** lane D. Sections 1, 7 and 8 are requirements. Sections 2 to 6 are a starting proposal, not an instruction: lane D may change the layout, the map's drawing, the colours, the type and the wording, and should use any design skill it has. Lane D edits this document to match what it builds, so the next person reads the real design.
+**Status:** written about 01:00 on Sunday 15 November 2026. It replaces the first interface (BUILD B40 to B43), which the team rejected. Nothing here is built. This is a first version to react to: build it plainly, then the team iterates.
+**Owner:** lane C (Aryan).
+**Who designs it:** lane C. Sections 1, 7 and 8 are requirements. Sections 2 to 6 are a starting proposal, not an instruction: lane C may change the layout, the map's drawing, the colours, the type and the wording, and should use any design skill it has. Lane C edits this document to match what it builds, so the next person reads the real design.
 **Related:** [Spec](SPEC.md) · [Contracts](CONTRACTS.md) · [Build](BUILD.md)
 
 ## 1. What the screen is for
