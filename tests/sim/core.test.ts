@@ -113,13 +113,18 @@ describe('V04 rickshaw accounting', () => {
     const config = configWith({ transformer: { ratingKw: 10_000 } });
     const sim = createSimulation(config, 'naive', { policy: alwaysOn });
     let chargerTicks = 0;
+    let lowest = 1;
+    let highest = 0;
     run(sim, 2 * TICKS_PER_DAY, (s) => {
+      // One comparison per charger, not one expect: half a million expects made this test slow on CI.
       for (const c of s.snapshot().chargers) {
-        expect(c.soc).toBeGreaterThanOrEqual(0);
-        expect(c.soc).toBeLessThanOrEqual(1);
+        if (c.soc < lowest) lowest = c.soc;
+        if (c.soc > highest) highest = c.soc;
       }
       chargerTicks += s.metrics().drawingNow;
     });
+    expect(lowest).toBeGreaterThanOrEqual(0);
+    expect(highest).toBeLessThanOrEqual(1);
     const m = sim.metrics();
     expect(m.energyDeliveredKwh).toBeCloseTo((chargerTicks * config.charger.powerKw) / 60, 6);
     expect(m.trips).toBe(0);
