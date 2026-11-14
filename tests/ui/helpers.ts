@@ -12,7 +12,8 @@ export function silenceCanvas(): void {
 export function fakeDeps(over: Partial<AppDeps> = {}): AppDeps {
   return {
     makeSimulation: (mode, config) => createFakeSimulation(config, mode),
-    defaultConfig: fakeConfig(),
+    // A small fleet keeps the UI tests light; the UI does not depend on the fleet size.
+    defaultConfig: { ...fakeConfig(), fleetSize: 40 },
     scenarios: devScenarios,
     ...over,
   };
