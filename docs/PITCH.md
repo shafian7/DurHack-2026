@@ -145,3 +145,44 @@ Checking the model's assumptions against real figures (battery size, charger pow
 ### Sources
 
 List the usable SOURCES.md entries the text cites, with links: S1, S3, S4, S10, P1, P2.
+
+## Backup video (B64)
+
+**Status:** plan only. A human records and uploads the video; Claude does not publish it (AGENTS.md rule 13). Never-cut item (BUILD §5).
+
+The `demo-3min` scenario (`src/scenarios/index.ts`) replays VALIDATION §4 steps 2 to 5 at fixed ticks, so the video shows the same night every time. It runs 2,220 ticks, from 12:00 on day one to 01:00 two nights later. Its scripted commands:
+
+| Sim clock | Tick | Command | Demo step |
+| --- | --- | --- | --- |
+| 22:30, night one | 630 | `setBaseLoadScale` 1.3 (heatwave on) | 3 |
+| 23:00, night one | 660 | `powerCut` 60 ticks (power back at 00:00) | 4 |
+| 01:00, night one | 780 | `setBaseLoadScale` 1 (heatwave off) | — |
+| 18:00, day two | 1,800 | `killScheduler` | 5 |
+
+What a development run of this scenario showed (lane D B61 status, naive and central only, before lane B's local rule existed): naive trips on night one and again about ten minutes after the power returns at midnight. Central does not trip until the kill, then trips on night two. Check that the recording shows the same, and that the local curve stays under the rating. If it does not, the voiceover must say what the screen shows, not what this plan expected.
+
+### Shot list
+
+Target about 2 min 45 s. Record at 1080p or higher, the browser full screen, the system clock and notifications hidden.
+
+| # | Length | Sim clock | On screen | Voiceover (from the script above) |
+| --- | --- | --- | --- | --- |
+| 1 | 0:00–0:20 | paused at 12:00 | Title card, then the three labelled neighbourhoods and the overlaid chart with the rating line | Step 1, sourced figures only |
+| 2 | 0:20–0:55 | 17:00 → 22:30 | Arrivals; the naive curve crosses the rating; the naive street goes dark at its first trip. Hold on the scoreboard for 2 s | Step 2 |
+| 3 | 0:55–1:20 | 22:30 → 23:00 | The heatwave starts (script). Zoom or point at local's curve bending | Step 3 |
+| 4 | 1:20–1:50 | 23:00 → 00:30 | All three dark for an hour; power returns at 00:00; naive slams back and trips; local trickles back | Step 4 |
+| 5 | 1:50–2:25 | speed up to 18:00 day two, then 18:00 → 01:00 | The scheduler-dead marker appears at 18:00. On night two the scheduled curve spikes and trips like naive. Local carries on | Step 5 |
+| 6 | 2:25–2:45 | paused | Cut to `src/policies/local.ts` in an editor, then the two caveats on a card, then the final scoreboard | Step 6 |
+
+Simulation speed: 2,220 ticks in about 2 min 10 s of playback needs about 17 ticks per second on average. Use the UI's speed control if it has one: slower through shots 2 to 4 and faster through day two. If the UI cannot run a scenario script, press the same controls live at the clock times in the table above.
+
+### Checklist for the human recording it
+
+1. Fresh clone of the frozen commit at G5/G6; `npm ci`; `npm run build`; `npm run preview` (or `npm run dev`). Write the commit hash in the video description.
+2. Choose the scripted demo scenario (`demo-3min`) and check that the three neighbourhoods are labelled naive, ours and scheduled.
+3. Do one dry run without recording. Check that the steps happen at the clock times above.
+4. Record the screen (OBS, or the OS screen recorder) with voiceover, or record the voiceover separately and add it afterwards.
+5. Check every spoken number against [CLAIMS.md](CLAIMS.md): sourced figures carry their attribution, experiment figures come from RESULTS.md on the same commit, and nothing from "must not say" is said.
+6. Watch it once end to end. Check that labels are readable at phone size.
+7. Upload as unlisted (YouTube or wherever the Devpost form accepts) and paste the link into the Devpost draft. **A human does this, not Claude.**
+8. Keep the raw file locally in case the upload fails close to the deadline.
