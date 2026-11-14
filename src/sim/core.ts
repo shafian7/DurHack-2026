@@ -46,8 +46,7 @@ const clamp = (value: number, low: number, high: number): number => Math.min(hig
 
 /**
  * The simulation core. Tick order and every rule here are specified in
- * docs/CONTRACTS.md §3 to §7. Three commands are not implemented yet and are
- * ignored: plugInBurst, removeChargers and stubbornChargers.
+ * docs/CONTRACTS.md §3 to §7.
  */
 export const createSimulation: CreateSimulation = (config, mode, deps) => {
   if (mode === 'central' && !deps.scheduler) {
@@ -63,12 +62,11 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
   // what the chargers do, so every mode sees the same night (CONTRACTS §1).
   const demandRng = createRng(deriveSeed(config.seed, 0));
   const noiseRng = createRng(deriveSeed(config.seed, 1));
-  // Reserved for the commands that pick chargers (removeChargers, stubbornChargers, plugInBurst).
+  // Picks the chargers hit by removeChargers, stubbornChargers and plugInBurst.
   const commandRng = createRng(deriveSeed(config.seed, 2));
   const layoutRng = createRng(deriveSeed(config.seed, 3));
   const behaviourRng = createRng(deriveSeed(config.seed, 4));
   const sensorRng = createRng(deriveSeed(config.seed, 5));
-  void commandRng;
 
   const { transformer: tx, charger: ch, arrivals } = config;
   const gain = socGainPerTick(ch);
@@ -194,6 +192,25 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
     sendEvent(c, { kind: 'pluggedIn', soc: c.soc });
   };
 
+  const validFraction = (fraction: number): boolean => Number.isFinite(fraction) && fraction > 0;
+
+  /**
+   * Picks up to count chargers using the command stream. The candidates depend
+   * only on arrivals and earlier commands, never on charging, so every mode
+   * picks the same ids.
+   */
+  const pickSome = (candidates: readonly Charger[], count: number): Charger[] => {
+    const pool = [...candidates];
+    const take = Math.min(count, pool.length);
+    for (let i = 0; i < take; i += 1) {
+      const j = i + commandRng.int(pool.length - i);
+      const swap = pool[i]!;
+      pool[i] = pool[j]!;
+      pool[j] = swap;
+    }
+    return pool.slice(0, take).sort((a, b) => a.id - b.id);
+  };
+
   const applyCommand = (command: Command): void => {
     switch (command.kind) {
       case 'setBaseLoadScale':
@@ -219,11 +236,31 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
       case 'reviveScheduler':
         schedulerAlive = true;
         break;
-      case 'plugInBurst':
-      case 'removeChargers':
-      case 'stubbornChargers':
-        // Not implemented yet (B02). Ignored, as an invalid command would be.
+      case 'plugInBurst': {
+        if (!Number.isFinite(command.count) || command.count < 1) break;
+        const away = chargers.filter((c) => !c.removed && !c.present && c.nextArriveTick !== null);
+        for (const c of pickSome(away, Math.round(command.count))) arrive(c);
         break;
+      }
+      case 'removeChargers': {
+        if (!validFraction(command.fraction)) break;
+        const left = chargers.filter((c) => !c.removed);
+        for (const c of pickSome(left, Math.round(Math.min(1, command.fraction) * left.length))) {
+          if (c.present) depart(c);
+          c.removed = true;
+          c.stubborn = false;
+          c.nextArriveTick = null;
+        }
+        break;
+      }
+      case 'stubbornChargers': {
+        if (!validFraction(command.fraction)) break;
+        const obedient = chargers.filter((c) => !c.removed && !c.stubborn);
+        for (const c of pickSome(obedient, Math.round(Math.min(1, command.fraction) * obedient.length))) {
+          c.stubborn = true;
+        }
+        break;
+      }
     }
   };
 

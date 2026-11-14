@@ -40,3 +40,32 @@
 - A policy that throws is treated as `off`; a scheduler that throws gives an empty plan.
 
 **What depends on it:** lane B's runner (B22) and lane C's real wiring (B04).
+
+**Merged:** PR #4, CI green.
+
+## B02 — protection, commands and central mode
+
+**Files changed:** `src/sim/core.ts`, `tests/sim/commands.test.ts`.
+
+**Commands run:** `npm run typecheck` exit 0; `npm test` exit 0, 4 files, 47 tests passed (adds V05 and V06); `npm run build` exit 0.
+
+**Decisions**
+
+- `removeChargers`, `stubbornChargers` and `plugInBurst` pick ids with a partial shuffle on the command stream. The candidates depend only on arrivals and earlier commands, so every mode picks the same ids.
+- A fraction above 1 is treated as 1. A removed charger stops being stubborn and never returns.
+- `plugInBurst` only moves rickshaws that are away and still due home that day. They keep their scheduled departure and battery level.
+- `powerCut` during an outage extends it to the later end time.
+
+**Checks not run:** nothing in a browser.
+
+## B03 — calibration
+
+**Result: no change to `defaultConfig()`.**
+
+- Clause 1 of VALIDATION section 2 already holds for the naive mode: with the default config, seeds 1 to 10, three days with the first excluded, every seed trips (1.5 to 3.0 trips per night, table under B01).
+- "It fits": a naive night draws about 1,150 kWh for the chargers. The room under the 220 kW rating between 21:30 and 07:00, using the household curve without wobble, is 1,526 kWh. So the fleet's energy fits under the rating if spread, using about three quarters of the room.
+- Only the naive mode was run for this.
+
+**Worth knowing for G2:** naive still sends 98% to 100% of rickshaws out ready, because after its trips the small hours have room. Clause 4 asks the local rule to match that, which is a high bar.
+
+**What depends on it:** lane B's G2 run (B23).
