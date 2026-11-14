@@ -85,6 +85,10 @@ Controls for every command: heatwave, derate, grid sag, power cut, plug-in burst
 
 **B43 — projector pass.** States are told apart by shape as well as colour, there is a legend and a clock, full-screen works, and the page holds a steady frame rate while a night plays in under a minute. Record the measured rate.
 
+**B44 — the random-stagger comparison.** Read: SPEC §5 and §7, VALIDATION §2 clause 5 and §4.
+A button, off by default, that adds a fourth neighbourhood running the `stagger` mode: its curve on the overlaid chart, labelled "Random delay, no sensing", and its row on the scoreboard. It is built from the same config and receives every command like the others. The default view stays at three neighbourhoods. Added on 15 November after B41 had merged.
+*Accepted when:* turning it on mid-run shows the stagger curve for the same night from tick 0, a test shows commands reach the fourth simulation, and the three-neighbourhood view is unchanged when it is off.
+
 ### Lane D — scheduler, scenarios and pitch (Aaron, Pro)
 
 **B60 — scenarios.** Read: the `Scenario` and `Command` types, SPEC §7.

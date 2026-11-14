@@ -58,6 +58,7 @@ On clause 6: our chargers are unaffected by `killScheduler` by construction, bec
 3. **Make it harder (30 s).** The judge turns on a heatwave or derates the transformer. Ours makes room.
 4. **Cut the power (30 s).** An hour of load-shedding. When it returns, naive slams back and trips again. Ours comes back in a trickle.
 5. **Kill the server (30 s).** The scheduled neighbourhood becomes the naive one. Ours carries on.
+   If a judge asks whether a random delay would do: switch on the random-delay curve (BUILD B44) and repeat step 3 or 4. Say only what clause 5 of §2 supports.
 6. **Why it is emergent (20 s).** Show the charger's rule file: a few lines, one input, no clock, no messages. Then the two honest caveats from SPEC §8.
 
 The `demo-3min` scenario replays steps 2 to 5 at fixed ticks for the backup video.

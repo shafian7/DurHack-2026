@@ -132,6 +132,7 @@ One simulation instance is one neighbourhood. The UI and the experiment runner e
 4. The judge cuts the power for an hour. When it returns, naive slams back on. Ours returns in a trickle.
 5. The judge kills the scheduler. That neighbourhood becomes the naive one. Ours does not notice.
 6. The judge makes a fifth of the chargers stubborn. Service degrades, and the scoreboard shows by how much.
+7. "Isn't a random delay enough?" The presenter switches on a fourth curve, chargers that only wait a random time and sense nothing, then turns on the heatwave or cuts the power. Ours reacts because it reads the voltage. What the random-delay chargers do is whatever the run shows; the pitch claims a difference only if VALIDATION §2 clause 5 passes.
 
 The scoreboard is on screen throughout. A night takes well under a minute at demo speed.
 
