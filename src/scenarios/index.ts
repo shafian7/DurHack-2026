@@ -70,16 +70,18 @@ export const growth: Scenario = {
 
 /**
  * The scripted demo of VALIDATION §4, steps 2 to 5, for the backup video.
- * Night one: the evening spike, a heatwave, then an hour's power cut.
+ * Night one: the evening spike, a heatwave, then an hour's power cut at 23:00
+ * that ends at midnight with the heatwave still on (it ends at 01:00).
  * Day two: the scheduler is killed before the evening, and night two shows
  * the scheduled neighbourhood turning into the naive one.
  */
 const demoScript: readonly ScriptedCommand[] = [
-  // Step 3: make it harder, after the naive neighbourhood has already tripped.
-  { atTick: tickAt(0, 22, 45), command: { kind: 'setBaseLoadScale', scale: HEATWAVE_SCALE } },
-  { atTick: tickAt(0, 0, 15), command: { kind: 'setBaseLoadScale', scale: 1 } },
-  // Step 4: an hour of load-shedding, then watch who slams back on.
-  { atTick: tickAt(0, 0, 45), command: { kind: 'powerCut', ticks: 60 } },
+  // Step 3: make it harder while the naive evening spike is at its height.
+  { atTick: tickAt(0, 22, 30), command: { kind: 'setBaseLoadScale', scale: HEATWAVE_SCALE } },
+  // Step 4: an hour of load-shedding at the height of the evening. Power returns
+  // at midnight with the heatwave still on, and naive slams back on together.
+  { atTick: tickAt(0, 23), command: { kind: 'powerCut', ticks: 60 } },
+  { atTick: tickAt(0, 1), command: { kind: 'setBaseLoadScale', scale: 1 } },
   // Step 5: kill the server before the next evening.
   { atTick: tickAt(1, 18), command: { kind: 'killScheduler' } },
 ];
@@ -87,7 +89,7 @@ const demoScript: readonly ScriptedCommand[] = [
 export const demo3min: Scenario = {
   id: 'demo-3min',
   title: 'Scripted demo',
-  description: 'Evening spike, heatwave, an hour of load-shedding, then the scheduler is killed before night two.',
+  description: 'Evening spike, a heatwave, an hour of load-shedding at 23:00, then the scheduler is killed before night two.',
   configure: identity,
   script: demoScript,
   durationTicks: tickAt(1, 1),

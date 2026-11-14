@@ -175,11 +175,12 @@ describe('scenario details', () => {
     expect(out.transformer).toEqual(base.transformer);
   });
 
-  it('demo-3min plays heatwave, power cut and scheduler kill in that order', () => {
+  it('demo-3min plays heatwave, power cut, heatwave off and scheduler kill in that order', () => {
     const kinds = byId('demo-3min').script.map((c) => c.command.kind);
-    expect(kinds).toEqual(['setBaseLoadScale', 'setBaseLoadScale', 'powerCut', 'killScheduler']);
-    // The heatwave is switched off again before the power cut.
-    expect(byId('demo-3min').script[1]!.command).toEqual({ kind: 'setBaseLoadScale', scale: 1 });
+    expect(kinds).toEqual(['setBaseLoadScale', 'powerCut', 'setBaseLoadScale', 'killScheduler']);
+    // The heatwave is switched off again after the power comes back.
+    expect(byId('demo-3min').script[2]!.command).toEqual({ kind: 'setBaseLoadScale', scale: 1 });
+    expect(byId('demo-3min').script[3]!.atTick).toBe(1800);
   });
 
   it('tickAt follows the noon-to-noon clock of CONTRACTS §1', () => {
