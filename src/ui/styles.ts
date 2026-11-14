@@ -52,14 +52,19 @@ export const CSS = `
   border-radius: 8px; padding: 6px 8px; min-height: 38px; max-width: 260px;
 }
 .rk-script-status { color: #ffe14d; font-weight: 800; font-size: 16px; }
-.rk-scenario-desc { margin: 2px 8px 0; color: var(--muted); font-size: 16px; }
-.rk-scenario-desc:empty { display: none; }
+.rk-chart-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; padding: 2px 8px 0; }
+.rk-scenario-desc { margin: 0; color: var(--muted); font-size: 16px; flex: 1 1 260px; }
+.rk-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 16px; font-weight: 700; }
+.rk-key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.rk-key-icon { flex: none; }
+.rk-street-legend { padding: 0 4px; color: var(--text); }
+.rk-legend-title { color: var(--muted); font-weight: 600; }
 .rk-main { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 12px; align-items: start; }
 .rk-chart-wrap { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 6px; min-width: 0; }
-.rk-chart { display: block; width: 100%; height: clamp(300px, 44vh, 560px); }
+.rk-chart { display: block; width: 100%; height: 470px; }
 .rk-judge {
   background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px;
-  display: flex; flex-direction: column; gap: 6px; max-height: calc(clamp(300px, 44vh, 560px) + 44px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px; max-height: 520px; overflow-y: auto;
 }
 .rk-judge h2 { margin: 0; font-size: 22px; font-weight: 900; }
 .rk-judge-note { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.2; }
@@ -107,6 +112,9 @@ export const CSS = `
 @media (max-width: 1500px) { .rk-value { font-size: 22px; } }
 @container (max-width: 520px) { .rk-score { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .rk-tile[data-metric="trips"] .rk-value, .rk-tile[data-metric="outage"] .rk-value { color: #ffb3c1; }
+@media (max-width: 899px) {
+  .rk-chart { height: clamp(260px, 45vh, 470px); }
+}
 @media (max-width: 700px) {
   .rk-root { padding: 10px 16px; font-size: 16px; }
   .rk-clock { font-size: 28px; }

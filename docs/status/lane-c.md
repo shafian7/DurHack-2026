@@ -1,5 +1,22 @@
 # Lane C status
 
+## Summary (written about 23:20, Saturday 14 November 2026)
+
+**Merged on `build`:** B40 (#10), B41 (#13), B42 (#16), B43 (the PR for `lane-c/B43-projector`). Every lane C item is done. `index.html` loads lane A's `src/main.ts`, which calls `mountApp` with the real core.
+
+**Not done or not checked:**
+
+- Nothing has been checked on a real projector or by a person clicking through. Every visual check used headless Chrome screenshots.
+- The frame rate was measured in headless Chrome only (see B43).
+- Lane B's policies, lane D's scheduler and lane D's scenarios were not on `build` while this lane ran. Until they land, the app runs lane A's stand-ins (plain charging) and shows lane A's red banner. The scenario picker and "Play script" have been tested only with stand-in scenarios.
+- Issue #15: lane A's V04 test runs close to Vitest's 5 s timeout on CI and can fail any lane's PR.
+
+**What a human must do next:**
+
+1. Once lanes B and D have landed, open the built site (`npm run build`, then `npx vite preview`) on the demo laptop and projector. Check the labels from three metres, run `demo-3min` with "Play script" twice without reloading, and record the frame rate, the laptop and the commit (VALIDATION §3).
+2. Check that the local and scheduled curves look right with the real policies. The UI only draws what `history()` and `metrics()` return.
+3. Press F or "Full screen" for the demo. The layout scales to fit any screen 900 px wide or wider.
+
 ## B40 — load curve and neighbourhood on a fake simulation
 
 **Branch:** `lane-c/B40-load-curve` · **State:** PR opened against `build` (see git log for the merge).
@@ -100,3 +117,38 @@
 - "Play script" stays disabled for a scenario with an empty script.
 
 **Depends on it:** B43; lane D's `demo-3min` scenario plays through "Play script" once it lands.
+
+## B43 — projector pass
+
+**Branch:** `lane-c/B43-projector` · **State:** PR opened against `build` (see git log for the merge).
+
+**Files changed**
+
+- `src/ui/legend.ts` (new): a chart legend (each neighbourhood's line with its dash and marker, the rating line, household demand and the hatched power-out strip) and a street legend (away dot, waiting hollow square, charging triangle, full disc, removed cross, stubborn ring). The icons are inline SVG matching the canvas drawing.
+- `src/ui/app.ts`: legends; a "Full screen" button (also the F key) that toggles full screen on the page; fit-to-screen, so the layout is drawn for 1920×1080 and the page is scaled by CSS `zoom = min(width/1920, height/1080)` (between 0.5 and 2) on any window at least 900 px wide. Narrower windows keep the stacked layout.
+- `src/ui/styles.ts`: legend styles. The chart is a fixed 470 px in the design size, and stays responsive below 900 px.
+- `tests/ui/app.test.ts`: every legend key is present; the full-screen control exists; the zoom matches the window.
+
+**How states differ by more than colour:** curves differ by dash (naive solid thin, ours solid thick, scheduled dashed) and marker (square, circle, triangle), and each has a label at its end. Street marks differ by shape. Outages are hatched. POWER OUT has a ✕ icon and a dashed border. SCHEDULER OFFLINE is striped and has a ⊘ icon and a dotted border.
+
+**Frame rate (measured).** Production build of this branch (`npm run build`, `npx vite preview`) with the real core and lane A's stand-in policies. Headless Chrome on Windows 11 at a 1920×1080 window, with `requestAnimationFrame` intervals timed over 10 s through the DevTools protocol (script kept outside the repo):
+
+| Speed | Frames in 10 s | fps | median frame | 95th percentile | worst |
+| --- | --- | --- | --- | --- | --- |
+| 8× (about 3 nights in 10 s) | 600 | 60.0 | 16.7 ms | 16.9 ms | 17.9 ms |
+| 1× (a night in 24 s) | 566 | 56.6 | 16.7 ms | 33.2 ms | 50.1 ms |
+| 4× | 537 | 53.6 | 16.7 ms | 33.4 ms | 33.7 ms |
+| 1× (repeat) | 569 | 56.9 | 16.7 ms | 33.1 ms | 50.0 ms |
+
+The first run of the session measured 30.1 fps at 1× (a flat 33.3 ms per frame), then 55.3 fps at 8×. The repeats did not reproduce this, so it looks like headless Chrome warming up rather than load. 8× being the smoothest suggests the occasional missed frame is caused by headless scheduling rather than simulation work. This is not a measurement on the demo laptop.
+
+**Commands run (Windows 11, Node v26.13.0)**
+
+- `npm run typecheck`: clean.
+- `npm test`: `Test Files 8 passed (8)`, `Tests 73 passed (73)`.
+- `npm run build`: `dist/assets/index-BppLLj4e.js 38.35 kB │ gzip: 13.91 kB`, `✓ built in 61ms`.
+- Headless Chrome screenshots of the dev page at 1280×720, 1366×768, 1920×1080 and 2560×1440. All showed the full layout with no scrolling and no clipped text.
+
+**Checks not run:** a real projector, a real full-screen toggle (headless Chrome cannot enter full screen), and frame rate on the demo laptop.
+
+**Depends on it:** lane A's B05 release rehearsal.
