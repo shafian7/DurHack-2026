@@ -1,5 +1,13 @@
 # Lane D status
 
+## Summary (about 23:59 Saturday 14 November; session stopped, not finished)
+
+- **Merged into `build`:** nothing. All five items have PRs with green CI, but this session's local Claude Code permission classifier refused `gh pr merge` ("[Destructive or Unwanted Actions]"). That is not a GitHub refusal, and it was not worked around. The PRs are stacked, each branched from the one before: #8 B60 → #9 B61 → #11 B62 → #12 B63 → #14 B64.
+- **Done, awaiting merge:** B60 scenarios (V10 tests), B61 central scheduler (unit tests plus real-core runs: 0 trips in `standard`; demo-3min story checked), B62 sources and pitch script, B64 video shot list and checklist.
+- **Not finished:** B63's numbers. `docs/CLAIMS.md` and the Devpost draft are written, but every experiment figure is a marked ⟦GAP⟧, because lane B's `docs/RESULTS.md` (B23, B24) is not on `build`.
+- **Figures with a usable source:** BRTA over 60 lakh and 10 to 12 lakh in Dhaka (S1); the Home Minister's Tk 4,000 crore a year in revenue (S3); the government moving to register the vehicles (S4); the BPDB official on night-time demand (part of S5); Ethernet back-off (S6); Chiu and Jain AIMD (S7); Grid Friendly appliances (S10); prior art P1 and P2. **Usable only in corrected form:** 16,059 / 12,388 / 3,671 MW is one PGCB reading at 3 pm on 9 August 2026, not a figure for August (S2). **No usable source:** "night charging overloads local transformers" and "left out of load forecasts" (S5), Jacobson 1988, DESYNC, and every model assumption (battery, charger power, rating, load curve, sag).
+- **A human must:** (1) merge #8, #9, #11, #12 and #14 in that order (squash), or allow `gh pr merge` for this Claude session and re-paste the lane D prompt; (2) once lane B's results exist, re-paste the lane D prompt so B63's gaps get filled from RESULTS.md; (3) optionally open the pages listed in SOURCES §5, to rescue the transformer-overload claim; (4) record and upload the backup video, and submit to Devpost (Claude does neither).
+
 ## B60 — scenarios
 
 **Files changed:** `src/scenarios/index.ts`, `tests/scenarios/scenarios.test.ts`, `docs/status/lane-d.md`.
