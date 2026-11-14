@@ -69,3 +69,15 @@
 **Worth knowing for G2:** naive still sends 98% to 100% of rickshaws out ready, because after its trips the small hours have room. Clause 4 asks the local rule to match that, which is a high bar.
 
 **What depends on it:** lane B's G2 run (B23).
+
+**Merged:** PR #5, CI green.
+
+## B04 — integration (wiring landed; gate G3 not met)
+
+**Files changed:** `src/main.ts`.
+
+`src/main.ts` now finds the other lanes' modules with `import.meta.glob`, so each one is wired the moment it lands on `build`, with no further edit. A missing policy, scheduler or scenario list gets a stand-in that behaves like plain charging, and the page shows a red banner naming what is missing.
+
+**Commands run:** `npm run typecheck` exit 0; `npm test` exit 0, 47 tests passed; `npm run build` exit 0.
+
+**Checks not run:** nothing in a browser. No other lane had landed anything on `build` when this was written (about 23:00 Saturday), so three real neighbourhoods, the frame rate and gate G3 are all unchecked. B04 is not accepted until that is done.
