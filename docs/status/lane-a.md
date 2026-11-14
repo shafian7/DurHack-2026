@@ -1,5 +1,11 @@
 # Lane A status
 
+## Summary (about 23:05 Saturday 14 November; session paused, not finished)
+
+- **Merged into `build`:** B00 scaffold and CI, B01 simulation core, B02 commands and central mode, B03 calibration (no config change), and the B04 wiring in `src/main.ts`.
+- **Not done:** B04's acceptance (three real neighbourhoods in a browser, frame rate, gate G3) and all of B05 (release). Both need the other lanes' work, and none had landed when this session paused.
+- **A human must:** re-paste the lane A prompt once lanes B, C and D have merged work, so B04 can be checked in a browser and B05 can run; then approve the release PR from `build` to `main`.
+
 ## B00 — foundation
 
 **Files changed:** `package.json`, `package-lock.json`, `tsconfig.json`, `vite.config.ts`, `.gitignore`, `.gitattributes`, `.github/workflows/ci.yml`, `src/sim/{index,rng,config,physics}.ts`, `src/main.ts`, `tests/sim/{rng,physics}.test.ts`, the four `docs/status/` files.
