@@ -126,7 +126,7 @@ One simulation instance is one neighbourhood. The UI and the experiment runner e
 
 ## 7. The demo
 
-1. Three neighbourhoods run the same night side by side: naive, ours, scheduled. One chart overlays their load curves against the transformer's rating.
+1. The same neighbourhood is shown as a top-down map twice, side by side: ordinary chargers and ours. A strip underneath overlays their load curves against the transformer's limit. The scheduled and random-delay neighbourhoods can be switched on as extra maps. [UI.md](UI.md) is the full specification.
 2. Evening comes. The naive curve spikes through the rating, the transformer trips and the neighbourhood goes dark. Ours bends and stays under.
 3. The judge turns on a heatwave or derates the transformer. Ours makes room again.
 4. The judge cuts the power for an hour. When it returns, naive slams back on. Ours returns in a trickle.
