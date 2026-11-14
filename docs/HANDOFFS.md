@@ -63,7 +63,9 @@ For B23, run the experiment exactly as docs/VALIDATION.md section 2 describes an
 Stop only when every lane B item is merged, or at the gate G5 feature freeze (09:00 Sunday). Finish by writing a short summary at the top of docs/status/lane-b.md: what is merged, what is not, the G2 verdict for each clause, and what a human must do next.
 ```
 
-## C. Aryan — interface (Pro)
+## C. Aryan — interface (Pro) — CLOSED
+
+**Do not run this prompt again.** The first interface was rejected on 15 November and the rebuild belongs to lane D (prompt D2 below).
 
 ```text
 You are running lane C of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going. This lane is everything a judge sees and touches, and the interactive demo is the product.
@@ -113,6 +115,36 @@ For the sources and pitch work (B62, B63): docs/SPEC.md section 1 lists figures 
 If an item is truly blocked, open an issue whose title starts with BLOCKED:, then move to the next item and come back later.
 
 Stop only when every lane D item is merged, or at the gate G5 feature freeze (09:00 Sunday). Finish by writing a short summary at the top of docs/status/lane-d.md: what is merged, what is not, which figures have a source and which do not, and what a human must do next.
+```
+
+## D2. Aaron — rebuild the interface as a map (Pro)
+
+Added about 01:00 on Sunday 15 November. Run this one now. It replaces prompt D for the rest of the hackathon.
+
+```text
+You are running lane D of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going.
+
+The project is a browser simulation of one neighbourhood transformer with 200 rickshaw chargers that spread their own load by watching only their own socket voltage. The team rejected the first interface. Your job now is to rebuild it as a minimal top-down 2D map. The interface used to belong to lane C; it is yours now.
+
+Setup: fetch origin and check out a fresh origin/build. The working branch is build, not main: every branch starts from origin/build and every PR targets build. Never push to main.
+
+Read, in this order: AGENTS.md, docs/UI.md in full (it is the specification; follow it closely), item B65 in docs/BUILD.md section 3, src/contracts.ts in full, docs/CONTRACTS.md sections 7 to 9, and docs/VALIDATION.md rows V08 and V09. Then read the existing code under src/ui/ and tests/ui/, because you are replacing parts of it and keeping others.
+
+Resume check: read docs/status/lane-d.md, git log and the open PRs. If a lane-d/B65 branch or PR exists, carry on from it.
+
+Do item B65, then stop. Branch lane-d/B65-map-ui from fresh origin/build. Work in small commits and push often. You may split it into two or three PRs (for example: the map and its layout function; then the numbers, evidence strip and action bar; then removal of unused files), each merged when green. For each PR: run npm run typecheck, npm test and npm run build, open the PR against build, squash-merge it yourself once CI is green, and add an entry to docs/status/lane-d.md (files changed, commands run and their real output, checks not run). If your Claude refuses gh pr merge, or GitHub refuses the merge, do not work around it: write BLOCKED and the exact message in the status file, branch the next part from the unmerged branch, and keep going.
+
+You own: index.html, src/ui/**, public/**, tests/ui/**, docs/UI.md, and everything lane D owned before. Do not edit anything else. src/main.ts belongs to lane A and already calls mountApp from src/ui/index.ts; keep that export and its type.
+
+How to build it: keep the run loop in src/ui/app.ts, the fake simulation and dev page in src/ui/dev/, and the chart and time helpers. Replace the street view with the map in docs/UI.md section 3. Replace the styling, scoreboard, legend and controls to match sections 2, 5 and 6. The map layout (charger id and feeder to x and y) is a pure function with its own tests. Develop against the fake simulation on the dev page, then check the real page.
+
+Hard rules: nothing under src/ui/ imports from src/sim/, src/policies/ or src/scenarios/. Every number on screen is read from metrics(), history() or snapshot(); never compute or invent a figure, and show no real-world statistics. Canvas 2D and plain DOM only: no framework, no chart or map library, no network requests. Every command control keeps a data-cmd attribute and sends its command to every simulation, shown or hidden. Keep the tests for V08 and V09 passing; do not delete or weaken a test to get a pass, and change one only where it tested the old layout's structure.
+
+Look matters here. Follow docs/UI.md section 6 exactly: one flat neutral near-black background, one amber, one red, off-white ink, system fonts, square corners, no gradients, glows, shadows, rounded cards, icon sets or emoji, and nothing teal or purple. It should read as a printed diagram of a street at night, not a dashboard. Do not add anything listed in section 8.
+
+Before the last PR, run the built page in a browser at 1920 by 1080 through a real night that includes a power cut, and attach a screenshot to the PR. If you cannot take one, say so in the status file under checks not run.
+
+Stop when B65 is merged. Do not start B66; the team will look at the result and give changes. Finish by updating the summary at the top of docs/status/lane-d.md: what is merged, what is not, and what a human must do next.
 ```
 
 ## If a session stops early

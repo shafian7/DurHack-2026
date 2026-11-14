@@ -16,8 +16,8 @@
 | --- | --- | --- | --- |
 | A — core and integration | Alex | Ultra | `package.json`, config files, `.github/`, `src/contracts.ts`, `src/sim/**`, `src/main.ts`, `tests/sim/**`, `AGENTS.md`, `docs/{README,SPEC,CONTRACTS,BUILD,VALIDATION,HANDOFFS}.md`, `docs/status/lane-a.md` |
 | B — charger rules and experiments | Shafian | Pro | `src/policies/{naive,stagger,local}.ts`, `scripts/**`, `tests/policies/**`, `docs/RESULTS.md`, `docs/status/lane-b.md` |
-| C — interface | Aryan | Pro | `index.html`, `src/ui/**`, `public/**`, `tests/ui/**`, `docs/status/lane-c.md` |
-| D — scheduler, scenarios and pitch | Aaron | Pro | `src/policies/scheduler.ts`, `src/scenarios/**`, `tests/scheduler/**`, `tests/scenarios/**`, `docs/{PITCH,CLAIMS,SOURCES}.md`, `docs/status/lane-d.md` |
+| C — interface (closed) | Aryan | Pro | `docs/status/lane-c.md` only. The interface moved to lane D on 15 November |
+| D — scheduler, scenarios, pitch and interface | Aaron | Pro | `index.html`, `src/ui/**`, `public/**`, `tests/ui/**`, `docs/UI.md`, `src/policies/scheduler.ts`, `src/scenarios/**`, `tests/scheduler/**`, `tests/scenarios/**`, `docs/{PITCH,CLAIMS,SOURCES}.md`, `docs/status/lane-d.md` |
 
 The assignments carry over from baseline 0.1 and can be swapped before work starts. Once work starts they stay fixed.
 
@@ -71,6 +71,8 @@ Extend the runner: the scheduler killed before the second evening; 10%, 20% and 
 
 ### Lane C — interface (Aryan, Pro)
 
+**Closed on 15 November.** B40 to B43 were built and merged, and the team rejected the result. B44 was not started and is replaced by a map switch in B65. Lane C's Claude should not be restarted. The interface is now lane D's item B65.
+
 **B40 — load curve and neighbourhood on a fake simulation.** Read: CONTRACTS §8 and §9, the `WorldSnapshot`, `TickSample`, `Simulation` and `MountApp` types.
 `mountApp`; a chart of load against time drawn from `history()`, with the rating line and outages marked; a neighbourhood view with one mark per charger along a street, showing away, waiting, charging, full and removed; and `src/ui/dev/fakeSimulation.ts`, a stand-in that implements `Simulation` with a plausible evening so the UI never waits for the core.
 *Accepted when:* `npm run dev` shows a night playing from the fake simulation, and V08 passes.
@@ -106,6 +108,12 @@ A button, off by default, that adds a fourth neighbourhood running the `stagger`
 **B63 — claims and Devpost text.** `docs/CLAIMS.md`, the ledger of VALIDATION §5 filled from real results, and a Devpost draft inside `docs/PITCH.md`. Depends on B23 for the numbers; leave marked gaps until they exist.
 
 **B64 — backup video support.** A shot list for the scripted scenario and a checklist for the human who records and uploads it.
+
+**B65 — the map interface.** Read: `docs/UI.md` in full, CONTRACTS §7 to §9, VALIDATION rows V08 and V09.
+Rebuild the interface as the top-down map MVP in `docs/UI.md`: two maps by default (ordinary chargers and ours), three numbers under each, one evidence strip, one action bar, with the scheduler and random-delay maps as switches. Reuse the run loop, fake simulation and dev page already in `src/ui/`; replace the street view, styling, scoreboard, legend and controls. Added on 15 November.
+*Accepted when:* V08 and V09 pass; the layout function's tests pass; `npm run typecheck`, `npm test` and `npm run build` pass; and the PR carries a screenshot of a real night at 1920 × 1080 that includes a power cut.
+
+**B66 — iterate.** After B65 merges, stop. The team looks at it and gives changes. Do not add anything from UI §8 without being asked.
 
 ## 4. Gates
 

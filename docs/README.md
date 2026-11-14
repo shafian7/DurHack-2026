@@ -21,6 +21,7 @@ Read only what your task needs:
 - [SPEC.md](SPEC.md): the problem, the requirements (R01 to R12), the charger's rules, the architecture and what we claim. All four read §1 to §4.
 - [CONTRACTS.md](CONTRACTS.md): what the shared types in [`src/contracts.ts`](../src/contracts.ts) mean, with units, the voltage model, tick order and what each module exports. Read before writing anything that produces or consumes them.
 - [BUILD.md](BUILD.md): lanes, file ownership, work items, gates with times, cut order and decisions. Each lane records what it actually did in its own `docs/status/lane-<x>.md`. **Those status files are the only place task state lives.**
+- [UI.md](UI.md): what the screen looks like and does. The top-down map MVP. Lane D reads this in full.
 - [VALIDATION.md](VALIDATION.md): the tests, the experiment protocol behind the scoreboard, the demo script and the claims ledger.
 - [HANDOFFS.md](HANDOFFS.md): the prompt each teammate pastes into their Claude to start.
 
