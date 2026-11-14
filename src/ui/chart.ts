@@ -235,6 +235,9 @@ export function drawChart(surface: Surface, series: readonly ChartSeries[], opti
     .sort((a, b) => a.ly - b.ly);
   const gap = fs + 6;
   for (let i = 1; i < ends.length; i++) ends[i]!.ly = Math.max(ends[i]!.ly, ends[i - 1]!.ly + gap);
+  // If the stack runs past the bottom of the plot, lift the whole stack.
+  const overflow = (ends[ends.length - 1]?.ly ?? 0) - (top + ph - fs / 2);
+  if (overflow > 0) for (const e of ends) e.ly -= overflow;
   ctx.font = `800 ${fs}px ${FONT}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
@@ -243,7 +246,7 @@ export function drawChart(surface: Surface, series: readonly ChartSeries[], opti
     const ex = x(e.p.tick);
     drawMarker(ctx, style.marker, ex, y(e.p.loadKw), big ? 8 : 6, style.colour, COLOURS.text);
     ctx.fillStyle = style.colour;
-    ctx.fillText(style.short, Math.min(ex + 14, left + pw + 10), Math.min(Math.max(e.ly, top + 8), top + ph));
+    ctx.fillText(style.short, Math.min(ex + 14, left + pw + 10), Math.max(e.ly, top + 8));
   }
 
   // Rating and overload labels go on top of the curves so they stay legible.

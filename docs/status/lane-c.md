@@ -67,3 +67,36 @@
 - The lowest socket voltage is shown because it is the one thing our chargers sense; it comes from `metrics().minSocketVolts`.
 
 **Depends on it:** B42 (controls), B43.
+
+**B41 addendum (CI).** The first two CI runs of PR #13 failed: lane A's `tests/sim/core.test.ts > V04 … matches energy to charger-ticks` hit `Error: Test timed out in 5000ms.` (it takes about 2.8 to 3.3 s alone locally). Lane C moved its DOM tests into one jsdom file (`tests/ui/app.test.ts`) and used a 40-charger fleet in UI tests; the third run passed and #13 was merged. Issue #15 asks lane A to raise that test's timeout.
+
+## B42 — judge controls
+
+**Branch:** `lane-c/B42-controls` · **State:** PR opened against `build` (see git log for the merge).
+
+**Files changed**
+
+- `src/ui/controls.ts` (new): the judge panel. Buttons for every command kind, each with `data-cmd="<kind>"` and, where it takes one, `data-value`: heatwave ×1.3 and normal, derate to 80% and full rating, grid sag to 95% and normal, cut power 1 h, 50 home early, make 20% stubborn, remove 10%, kill server and revive. `commandFor` builds the `Command` (null for an unknown kind or a missing value); `commandLabel` gives the chart marker text.
+- `src/ui/app.ts`: run bar with pause/play (also the space bar), speeds ¼× to 8× (1× is 60 ticks per second, a day in 24 s), reset, scenario picker (from `deps.scenarios`; its description shows above the chart) and "Play script", which resets, replays the scenario's `script` at each `atTick` and pauses at `durationTicks`. `send()` applies a command to every neighbourhood synchronously, so all receive it on the same tick, and marks it on the chart. The level of each scale command in force is shown pressed.
+- `src/ui/styles.ts`: run bar, buttons, judge panel beside the chart (stacks under 1100 px).
+- `tests/ui/app.test.ts`: V09 (every command kind has a `data-cmd` control; clicking each sends an identical command to naive, local and central on the same tick, through spy simulations); `commandFor` rejects bad input; pause, speed and reset; the scenario picker rebuilds every neighbourhood from the scenario's config; a script reaches every neighbourhood at its ticks, stops at its duration and replays without a reload.
+
+**Commands run (Windows 11, Node v26.13.0)**
+
+- `npm run typecheck`: clean.
+- `npm test`: `Test Files 8 passed (8)`, `Tests 71 passed (71)`.
+- `npm run build`: `dist/assets/index-gmgZrDWD.js 34.47 kB │ gzip: 12.73 kB`, `✓ built in 71ms`.
+- Headless Chrome screenshot of the dev page at 1920×1080: header, chart, judge panel and three cards fit on one screen without scrolling.
+
+**Checks not run**
+
+- The controls were exercised through tests and a screenshot, not clicked by hand in a browser.
+- Lane D's real scenarios are not on `build` yet, so the picker and "Play script" were checked only with the dev and test scenarios.
+
+**Decisions**
+
+- Command values (×1.3, 80%, 95%, 1 h, 50, 20%, 10%) are demo settings chosen to match SPEC §7 and the B24 experiments; they are labels of controls, not results.
+- A command is applied at the moment it is clicked, between frames, so every neighbourhood receives it at the same `tick` and it takes effect at the next one (CONTRACTS §7).
+- "Play script" stays disabled for a scenario with an empty script.
+
+**Depends on it:** B43; lane D's `demo-3min` scenario plays through "Play script" once it lands.
