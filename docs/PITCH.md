@@ -79,3 +79,69 @@ From [CLAIMS.md](CLAIMS.md) "must not say": that the model matches a real feeder
 - **"Has this been done?"** Yes, for cars: voltage-droop charging in Denmark **[P1]** and AIMD-based charging **[P2]**. We applied the idea to an informal fleet and made it interactive.
 - **"Are your numbers real?"** They come from a simple model with stated assumptions (SOURCES §4): a 7 kWh battery, a 1 kW charger, a 220 kW transformer. These are assumptions, not measurements. Every number on screen comes from the running simulation.
 - **"Does it use AI?"** No. Fixed rules, a few lines per charger, no model calls.
+
+## Devpost draft
+
+**Status:** draft for a human to paste and submit (AGENTS.md rule 13: Claude does not submit). Gaps fill from `docs/RESULTS.md` on the frozen commit. Remove the source tags before pasting, and keep the sources list at the end.
+
+### Name
+
+RICKSHAWS: chargers that spread their own load
+
+### Tagline
+
+Two hundred battery-rickshaw chargers keep one neighbourhood transformer on, using nothing but the voltage at their own sockets.
+
+### Inspiration
+
+Bangladesh's road authority estimates there are over sixty lakh battery rickshaws, ten to twelve lakh of them in Dhaka **[S1]**. They mostly charge at night from ordinary sockets, much of it informally: the Home Minister told Parliament in September 2026 that illegal charging costs the government about Tk 4,000 crore a year **[S3]**. A central scheduler would need every charger registered, online and obedient. We wanted to know whether chargers could share a transformer with no server at all.
+
+### What it does
+
+A browser simulation of one transformer and the 200 chargers on its street, run the same night three ways:
+
+- **Naive:** charge as soon as you're plugged in. This is today's behaviour, and it makes the evening spike.
+- **Ours:** each charger watches only the voltage at its own socket. When the voltage sags it backs off for a random time, and an emptier battery backs off less. When the voltage has room, it comes back. There is no clock, no schedule, no messages and no idea how many neighbours it has.
+- **Scheduled:** a central server that sees everything, including when each rickshaw leaves.
+
+You can push it over: a heatwave, a derated transformer, an hour of load-shedding, stubborn chargers that ignore the rule, or killing the scheduler's server. The scoreboard shows peak load, minutes overloaded, trips, minutes without power and the share of rickshaws that left charged, near and far along the street.
+
+### Results
+
+Standard scenario, 10 seeds, two measured nights each, commit **⟦GAP: frozen commit⟧**:
+
+| | Naive | Random stagger | Ours | Scheduled |
+| --- | --- | --- | --- | --- |
+| Peak load / rating | ⟦GAP⟧ | ⟦GAP⟧ | ⟦GAP⟧ | ⟦GAP⟧ |
+| Minutes overloaded per night | ⟦GAP⟧ | ⟦GAP⟧ | ⟦GAP⟧ | ⟦GAP⟧ |
+| Trips per night | ⟦GAP⟧ | ⟦GAP⟧ | ⟦GAP⟧ | ⟦GAP⟧ |
+| Left charged (near / far) | ⟦GAP⟧ | ⟦GAP⟧ | ⟦GAP⟧ | ⟦GAP⟧ |
+
+Clause verdicts from VALIDATION §2: **⟦GAP: pass/fail for clauses 1 to 6⟧**. If a clause failed, say so here and narrow the claim (BUILD §5).
+
+When the scheduler's server is killed at 18:00 on night two, the scheduled street trips in **⟦GAP⟧** of 10 seeds. Ours is unaffected by construction: it never had a server.
+
+### How we built it
+
+TypeScript, Vite, Canvas 2D and plain DOM. No UI framework, no backend and no AI. A deterministic, seeded simulation runs in one-minute ticks. Voltage falls with transformer load and with distance along the feeder, and that is the only way one charger affects another. The same code runs headless over many seeds to produce the results table. Four people worked in four lanes against one frozen contract file.
+
+### Challenges
+
+Keeping it honest. Every number on screen comes from the running simulation, and every number here comes from a results file or a cited source. Calibrating the model against the naive mode only, so it shows the problem without flattering our rule. And the far end of the street: it sees lower voltage, so its chargers back off more. We report near and far separately (**⟦GAP⟧** vs **⟦GAP⟧**).
+
+### What we learned
+
+The idea isn't new. Voltage-dependent EV charging **[P1]**, AIMD-style decentralised charging **[P2]** and grid-friendly appliances that respond to frequency **[S10]** all exist. What's different here is the setting: an informal fleet that can't be registered or scheduled, where "nothing to fail" matters most.
+
+### What's next
+
+Checking the model's assumptions against real figures (battery size, charger power, transformer rating and household load are assumptions today). And a hardware charger that implements the rule. If these vehicles are registered, as the government says it plans **[S4]**, a grid-friendly charging rule could become part of the standard. That is an argument, not a finding.
+
+### Caveats (keep these in the submission)
+
+- The model is a sketch with stated assumptions, not a model of a real feeder.
+- Results are from simulation only.
+
+### Sources
+
+List the usable SOURCES.md entries the text cites, with links: S1, S3, S4, S10, P1, P2.

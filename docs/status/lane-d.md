@@ -70,3 +70,15 @@ The integration tests check seeds 1 to 3 of these on every CI run.
 **Checks not run:** the script has not been read aloud or timed. Nobody but this session has checked the sources.
 
 **What depends on it:** B63 (CLAIMS.md and the Devpost draft) uses these verdicts. Gaps fill from lane B's `docs/RESULTS.md` (B23, B24).
+
+## B63 — claims and Devpost text (draft with gaps)
+
+**Files changed:** `docs/CLAIMS.md`, `docs/PITCH.md` (Devpost draft section), `docs/status/lane-d.md`.
+
+**What was done:** wrote the claims ledger in the three-way form of VALIDATION §5 (may say / only with evidence / must not say), with each row's evidence and where it stands now. Wrote a Devpost draft with every experiment number as a ⟦GAP⟧.
+
+**Not finished:** B63 depends on B23 for the numbers. When this was written, lane B had not landed `docs/RESULTS.md` or the experiment script. The gaps are marked and unfilled, as the prompt requires. Lane D comes back to fill them if results land before G5.
+
+**Commands run:** `npm run typecheck` exit 0; `npm test` exit 0, 106 tests (docs only).
+
+**What depends on it:** the human who submits to Devpost (G6). Lane B's RESULTS.md fills the gaps.
