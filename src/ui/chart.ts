@@ -205,12 +205,6 @@ export function drawChart(surface: Surface, series: readonly ChartSeries[], opti
     ctx.beginPath();
     ref.forEach((s, i) => (i === 0 ? ctx.moveTo(x(s.tick), y(s.ratingKw)) : ctx.lineTo(x(s.tick), y(s.ratingKw))));
     ctx.stroke();
-    const lastRef = ref[ref.length - 1]!;
-    ctx.font = `700 ${fs}px ${FONT}`;
-    ctx.fillStyle = COLOURS.rating;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(`Transformer rating ${Math.round(lastRef.ratingKw)} kW`, left + 8, y(lastRef.ratingKw) - 6);
   }
 
   // Load curves.
@@ -250,6 +244,25 @@ export function drawChart(surface: Surface, series: readonly ChartSeries[], opti
     drawMarker(ctx, style.marker, ex, y(e.p.loadKw), big ? 8 : 6, style.colour, COLOURS.text);
     ctx.fillStyle = style.colour;
     ctx.fillText(style.short, Math.min(ex + 14, left + pw + 10), Math.min(Math.max(e.ly, top + 8), top + ph));
+  }
+
+  // Rating and overload labels go on top of the curves so they stay legible.
+  if (ref.length > 0) {
+    const lastRef = ref[ref.length - 1]!;
+    const text = `Transformer rating ${Math.round(lastRef.ratingKw)} kW`;
+    ctx.font = `800 ${fs}px ${FONT}`;
+    const tw = ctx.measureText(text).width;
+    const ly = y(lastRef.ratingKw) - 8;
+    ctx.fillStyle = 'rgba(20, 26, 38, 0.85)';
+    ctx.fillRect(left + 4, ly - fs - 4, tw + 12, fs + 8);
+    ctx.fillStyle = COLOURS.rating;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(text, left + 10, ly + 1);
+    ctx.font = `800 ${fs - 2}px ${FONT}`;
+    ctx.fillStyle = '#ff8fa3';
+    ctx.textBaseline = 'top';
+    ctx.fillText('OVERLOADED above this line', left + 10, top + 6);
   }
 
   // Power-out strips, one row per neighbourhood, under the time axis.

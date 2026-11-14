@@ -29,3 +29,10 @@ export function durationText(ticks: number): string {
   if (total < 60) return `${total} min`;
   return `${Math.floor(total / 60)} h ${pad(total % 60)} min`;
 }
+
+/** "4h 05m" or "45 min": the compact form for scoreboard tiles. */
+export function shortDuration(ticks: number): string {
+  const total = Math.round(ticks);
+  if (total < 60) return `${total} min`;
+  return `${Math.floor(total / 60)}h ${pad(total % 60)}m`;
+}

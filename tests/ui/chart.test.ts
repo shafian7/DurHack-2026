@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TickSample } from '../../src/contracts';
 import { chartWindow, niceCeil, outageSpans, yMaxFor } from '../../src/ui/chart';
-import { clockLabel, clockText, durationText, hourOfDay, nightNumber } from '../../src/ui/time';
+import { clockLabel, clockText, durationText, hourOfDay, nightNumber, shortDuration } from '../../src/ui/time';
 
 const sample = (tick: number, over: Partial<TickSample> = {}): TickSample => ({
   tick,
@@ -53,6 +53,8 @@ describe('clock', () => {
     expect(nightNumber(1439)).toBe(1);
     expect(clockLabel(1440 + 60)).toBe('Night 2 · 13:00');
     expect(durationText(45)).toBe('45 min');
-    expect(durationText(125)).toBe('2 h 05 min');
+    expect(durationText(125)).toBe("2 h 05 min");
+    expect(shortDuration(125)).toBe("2h 05m");
+    expect(shortDuration(45)).toBe("45 min");
   });
 });

@@ -7,6 +7,7 @@ import type { AppDeps, FleetMode, Scenario, SimConfig, Simulation, Tick } from '
 import { fitCanvas } from './canvas';
 import { drawChart, type ChartEvent } from './chart';
 import { el, setText } from './dom';
+import { createScoreboard, type Scoreboard } from './scoreboard';
 import { drawStreet } from './street';
 import { injectStyles } from './styles';
 import { DISPLAY_MODES, MODE_STYLE } from './theme';
@@ -40,6 +41,9 @@ interface HoodView {
   readonly mode: FleetMode;
   readonly card: HTMLElement;
   readonly street: HTMLCanvasElement;
+  readonly score: Scoreboard;
+  readonly powerBadge: HTMLElement;
+  readonly schedulerBadge: HTMLElement;
 }
 
 export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions = {}): AppHandle {
@@ -94,14 +98,26 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
       role: 'img',
       'aria-label': `${style.label}: one mark per charger along the street`,
     });
-    const card = el(doc, 'section', { class: 'rk-hood', 'data-mode': mode }, [
+    const score = createScoreboard(doc);
+    const powerBadge = el(doc, 'div', { class: 'rk-badge rk-badge-out', role: 'status', hidden: true }, [
+      el(doc, 'span', { class: 'rk-badge-icon', 'aria-hidden': 'true', text: '✕' }),
+      'POWER OUT',
+    ]);
+    const schedulerBadge = el(doc, 'div', { class: 'rk-badge rk-badge-dead', role: 'status', hidden: true }, [
+      el(doc, 'span', { class: 'rk-badge-icon', 'aria-hidden': 'true', text: '⊘' }),
+      'SCHEDULER OFFLINE: chargers fall back to plain charging',
+    ]);
+    const card = el(doc, 'section', { class: 'rk-hood', 'data-mode': mode, 'data-power': 'on' }, [
       el(doc, 'h2', {}, [el(doc, 'span', { class: 'rk-swatch', 'data-marker': style.marker }), style.label]),
       el(doc, 'p', { class: 'rk-blurb', text: style.blurb }),
+      powerBadge,
+      schedulerBadge,
       street,
+      score.node,
     ]);
     card.style.setProperty('--accent', style.colour);
     card.querySelector<HTMLElement>('.rk-swatch')!.style.background = style.colour;
-    return { mode, card, street };
+    return { mode, card, street, score, powerBadge, schedulerBadge };
   });
   const hoodRow = el(doc, 'section', { class: 'rk-hoods' }, hoods.map((h) => h.card));
 
@@ -131,6 +147,13 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
       const sim = sims[i];
       if (!sim) return;
       const snap = sim.snapshot();
+      const out = snap.transformer.tripped;
+      const offline = sim.mode === 'central' && !snap.schedulerAlive;
+      h.card.dataset.power = out ? 'out' : 'on';
+      h.card.dataset.scheduler = offline ? 'offline' : 'online';
+      h.powerBadge.hidden = !out;
+      h.schedulerBadge.hidden = !offline;
+      h.score.update(sim.metrics());
       const st = fitCanvas(h.street);
       if (st) drawStreet(st, snap, MODE_STYLE[h.mode].colour);
     });

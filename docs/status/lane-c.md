@@ -36,3 +36,34 @@
 - The fake simulation's numbers are never shown in the product: `main.ts` (lane A) passes the real core, and the dev page carries a banner.
 
 **Depends on it:** B41 to B43; lane A's `main.ts` already calls `mountApp` and picks it up once this is on `build`.
+
+## B41 — three neighbourhoods and the scoreboard
+
+**Branch:** `lane-c/B41-scoreboard` · **State:** PR opened against `build` (see git log for the merge).
+
+**Files changed**
+
+- `src/ui/scoreboard.ts` (new): eight tiles per neighbourhood, each a pure formatter of `metrics()`: load now (kW and share of rating), peak load (kW and share), minutes over rating, trips, minutes without power, share left charged with near and far, plugged in and drawing, lowest socket voltage. Formatting only rounds; `null` shows as a dash.
+- `src/ui/app.ts`: each card now holds a POWER OUT badge (red, ✕ icon, dashed red border) shown while `snapshot().transformer.tripped`, a SCHEDULER OFFLINE badge (striped, ⊘ icon, dotted border) shown on the central card while `snapshot().schedulerAlive` is false, and the scoreboard.
+- `src/ui/styles.ts`: tile, badge and state styles; the scoreboard drops to two columns in a narrow card (container query).
+- `src/ui/chart.ts`: the rating label sits on a backdrop drawn after the curves; an "OVERLOADED above this line" label in the overload zone.
+- `src/ui/time.ts`: `shortDuration` ("4h 45m") for tiles.
+- `tests/ui/scoreboard.test.ts` (new): every tile's value and detail equal the formatter applied to that neighbourhood's `metrics()` after a night and a half; POWER OUT shows on every card during a power cut and clears after; SCHEDULER OFFLINE shows only on the central card and clears on revive. `tests/ui/chart.test.ts`: `shortDuration`.
+
+**Commands run (Windows 11, Node v26.13.0)**
+
+- `npm run typecheck`: clean.
+- `npm test`: `Test Files 9 passed (9)`, `Tests 65 passed (65)`.
+- `npm run build`: `dist/assets/index-ClPLoRmL.js 26.18 kB │ gzip: 10.23 kB`, `✓ built`.
+- Headless Chrome screenshots of the dev page at 1920×1080 and 1280×720, night 2 at 22:30. At 1920×1080 the whole page fits without scrolling; at 1280×720 the cards run below the fold (to be handled in B43).
+
+**Checks not run**
+
+- "Readable from three metres" was judged from screenshots only (values 26 px, labels 14 px, card titles 24 px at 1920×1080), not on a projector.
+
+**Decisions**
+
+- Near and far ready shares sit under "Left charged" rather than in a tile of their own, to keep the scoreboard to two rows.
+- The lowest socket voltage is shown because it is the one thing our chargers sense; it comes from `metrics().minSocketVolts`.
+
+**Depends on it:** B42 (controls), B43.
