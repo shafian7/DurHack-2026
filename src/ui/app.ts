@@ -8,6 +8,7 @@ import { fitCanvas } from './canvas';
 import { drawChart, type ChartEvent } from './chart';
 import { commandLabel, createCommandPanel } from './controls';
 import { el, setText } from './dom';
+import { createChartLegend, createStreetLegend } from './legend';
 import { createScoreboard, type Scoreboard } from './scoreboard';
 import { drawStreet } from './street';
 import { injectStyles } from './styles';
@@ -48,6 +49,9 @@ export interface AppHandle {
 /** Simulated minutes per real second at 1× speed: a day in 24 seconds. */
 export const BASE_TICKS_PER_SECOND = 60;
 export const SPEEDS: readonly number[] = [0.25, 0.5, 1, 2, 4, 8];
+/** The screen size the layout is drawn for; other screens scale to it. */
+export const DESIGN_WIDTH = 1920;
+export const DESIGN_HEIGHT = 1080;
 /** Upper bound on ticks per frame, so a slow frame never stalls the page. */
 const MAX_TICKS_PER_FRAME = 240;
 
@@ -109,6 +113,13 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
     deps.scenarios.map((s) => el(doc, 'option', { value: s.id, text: s.title })),
   );
   const scriptBtn = el(doc, 'button', { type: 'button', class: 'rk-btn rk-run-btn', 'data-run': 'script', text: '▶ Play script' });
+  const fullBtn = el(doc, 'button', {
+    type: 'button',
+    class: 'rk-btn rk-run-btn',
+    'data-run': 'fullscreen',
+    title: 'Full screen (F)',
+    text: '⛶ Full screen',
+  });
   const scriptStatus = el(doc, 'span', { class: 'rk-script-status', role: 'status' });
   const scenarioDesc = el(doc, 'p', { class: 'rk-scenario-desc' });
 
@@ -118,6 +129,7 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
     resetBtn,
     scenarioSelect,
     scriptBtn,
+    fullBtn,
     scriptStatus,
   ]);
 
@@ -137,7 +149,10 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
   });
   const judge = createCommandPanel(doc, (cmd) => send(cmd));
   const main = el(doc, 'div', { class: 'rk-main' }, [
-    el(doc, 'section', { class: 'rk-chart-wrap' }, [scenarioDesc, chart]),
+    el(doc, 'section', { class: 'rk-chart-wrap' }, [
+      el(doc, 'div', { class: 'rk-chart-head' }, [scenarioDesc, createChartLegend(doc, modes)]),
+      chart,
+    ]),
     judge,
   ]);
 
@@ -171,7 +186,7 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
   });
   const hoodRow = el(doc, 'section', { class: 'rk-hoods' }, hoods.map((h) => h.card));
 
-  root.append(header, main, hoodRow);
+  root.append(header, main, createStreetLegend(doc), hoodRow);
 
   // ---------------------------------------------------------------- controls
   function syncRunControls(): void {
@@ -251,12 +266,26 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
   scenarioSelect.addEventListener('change', () => selectScenario(scenarioSelect.value));
   scriptBtn.addEventListener('click', () => playScript());
 
+  function toggleFullscreen(): void {
+    try {
+      if (doc.fullscreenElement) void doc.exitFullscreen?.();
+      else void doc.documentElement.requestFullscreen?.();
+    } catch {
+      // Full screen is a nicety; the browser's own F11 still works.
+    }
+  }
+  fullBtn.addEventListener('click', toggleFullscreen);
+  const onFullscreen = () => setText(fullBtn, doc.fullscreenElement ? '⛶ Exit full screen' : '⛶ Full screen');
+  doc.addEventListener('fullscreenchange', onFullscreen);
+
   const onKey = (e: KeyboardEvent) => {
     const t = e.target as HTMLElement | null;
     if (t && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(t.tagName)) return;
     if (e.key === ' ') {
       e.preventDefault();
       setPaused(!paused);
+    } else if (e.key === 'f' || e.key === 'F') {
+      toggleFullscreen();
     }
   };
   doc.addEventListener('keydown', onKey);
@@ -331,6 +360,20 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
     }
   }
 
+  // The layout is designed for a 1920×1080 screen. On any screen at least
+  // 900 px wide, scale the whole page so it fits exactly, the same way on a
+  // laptop, a 720p projector or a 4K display. Narrower screens stack instead.
+  const view = doc.defaultView;
+  function fitToScreen(): void {
+    if (!view) return;
+    const w = view.innerWidth;
+    const h = view.innerHeight;
+    const z = w >= 900 && h > 0 ? Math.max(0.5, Math.min(2, w / DESIGN_WIDTH, h / DESIGN_HEIGHT)) : 1;
+    root.style.setProperty('zoom', String(Math.round(z * 1000) / 1000));
+  }
+  fitToScreen();
+  view?.addEventListener('resize', fitToScreen);
+
   const raf_ = globalThis.requestAnimationFrame?.bind(globalThis);
   const caf_ = globalThis.cancelAnimationFrame?.bind(globalThis);
   function loop(now: number): void {
@@ -374,6 +417,8 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
       destroyed = true;
       if (raf !== null && caf_) caf_(raf);
       doc.removeEventListener('keydown', onKey);
+      doc.removeEventListener('fullscreenchange', onFullscreen);
+      view?.removeEventListener('resize', fitToScreen);
       root.replaceChildren();
     },
   };

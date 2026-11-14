@@ -257,3 +257,26 @@ describe('run controls', () => {
     app.destroy();
   });
 });
+
+describe('projector pass (B43)', () => {
+  it('has a legend for every curve, the rating, household demand, outages and every street state', () => {
+    const root = document.createElement('div');
+    const app = createApp(root, fakeDeps());
+    const keys = [...root.querySelectorAll<HTMLElement>('.rk-key')].map((k) => k.dataset.key);
+    expect(keys).toEqual(
+      expect.arrayContaining(['naive', 'local', 'central', 'rating', 'household', 'outage', 'away', 'waiting', 'charging', 'full', 'removed', 'stubborn']),
+    );
+    app.destroy();
+  });
+
+  it('offers full screen and scales the 1920×1080 layout to the window', () => {
+    const root = document.createElement('div');
+    const app = createApp(root, fakeDeps());
+    expect(root.querySelector('[data-run="fullscreen"]')).not.toBeNull();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const expected = w >= 900 ? Math.max(0.5, Math.min(2, w / 1920, h / 1080)) : 1;
+    expect(Number(root.style.getPropertyValue('zoom'))).toBeCloseTo(expected, 2);
+    app.destroy();
+  });
+});
