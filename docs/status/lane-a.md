@@ -19,3 +19,24 @@
 - `createSimulation` arrives with B01.
 
 **What depends on it:** every lane needs this on `build` to run tests. B01 builds on it.
+
+**Merged:** PR #3, CI green.
+
+## B01 — the night
+
+**Files changed:** `src/sim/core.ts`, `src/sim/index.ts`, `tests/sim/core.test.ts`, `tests/sim/helpers.ts`.
+
+**Commands run:** `npm run typecheck` exit 0; `npm test` exit 0, 3 files, 28 tests passed (V01, V03, V04, history, a naive night).
+
+**Headless naive run**, inline always-on policy, default config, three days with the first excluded, seeds 1 to 10: peak 117% to 121% of rating, 218 to 242 overloaded minutes per night, 1.5 to 3.0 trips per night, 45 to 90 minutes without power per night, 98% to 100% leaving ready, lowest socket voltage 194 to 195 V, about 1,150 kWh drawn per night.
+
+**Checks not run:** nothing in a browser.
+
+**Decisions**
+
+- The core already includes transformer protection, `powerCut`, the three scale commands, central-mode mechanics and kill/revive, because they were written together. B02 adds `plugInBurst`, `removeChargers` and `stubbornChargers`, which are ignored for now, and the V05 and V06 tests.
+- The household wobble is `n = clamp(0.98 n + 0.2 (u - 0.5), -1, 1)` per tick from its own stream.
+- Sensor noise is drawn for every plugged-in charger every tick, outage or not, so the stream does not depend on the mode.
+- A policy that throws is treated as `off`; a scheduler that throws gives an empty plan.
+
+**What depends on it:** lane B's runner (B22) and lane C's real wiring (B04).
