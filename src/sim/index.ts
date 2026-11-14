@@ -1,4 +1,4 @@
-// Public surface of the simulation core (CONTRACTS §9).
-// createSimulation is added by B01.
+﻿// Public surface of the simulation core (CONTRACTS §9).
+export { createSimulation } from './core';
 export { createRng } from './rng';
 export { defaultConfig } from './config';
