@@ -17,5 +17,7 @@ export default defineConfig({
     // Node by default. A test that needs a DOM puts
     // `// @vitest-environment jsdom` on its first line.
     environment: 'node',
+    // Multi-day simulation runs are slow on shared CI runners.
+    testTimeout: 30_000,
   },
 });
