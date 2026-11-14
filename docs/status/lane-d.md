@@ -82,3 +82,15 @@ The integration tests check seeds 1 to 3 of these on every CI run.
 **Commands run:** `npm run typecheck` exit 0; `npm test` exit 0, 106 tests (docs only).
 
 **What depends on it:** the human who submits to Devpost (G6). Lane B's RESULTS.md fills the gaps.
+
+## B64 — backup video support
+
+**Files changed:** `docs/PITCH.md` (Backup video section), `docs/status/lane-d.md`.
+
+**What was done:** the `demo-3min` command timeline in clock times and ticks, a six-shot list keyed to the simulated clock, a playback-speed note (about 17 ticks per second for 2,220 ticks in about 2 min 10 s), and a recording and upload checklist for a human.
+
+**Commands run:** `npm run typecheck` exit 0; `npm test` exit 0, 106 tests (docs only).
+
+**Checks not run:** whether lane C's UI can play a scenario script and has a speed control. Not checked, because lane D does not read other lanes' code. The checklist covers both cases. No dry run in a browser.
+
+**What depends on it:** the human recording at G6.
