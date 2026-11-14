@@ -27,15 +27,51 @@ export const CSS = `
 .rk-root [hidden] { display: none !important; }
 .rk-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
 .rk-brand h1 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: 0.06em; }
-.rk-brand p { margin: 0; color: var(--muted); font-size: 17px; }
+.rk-brand p { margin: 0; color: var(--muted); font-size: 16px; }
 .rk-clock {
-  font: 800 40px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font: 800 36px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
   padding: 6px 16px; border: 2px solid var(--line); border-radius: 10px; background: var(--panel);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .rk-spacer { flex: 1 1 auto; }
-.rk-chart-wrap { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 6px; }
-.rk-chart { display: block; width: 100%; height: clamp(300px, 46vh, 560px); }
+.rk-run { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.rk-speeds { display: flex; gap: 2px; }
+.rk-btn {
+  font: 800 17px/1.1 ${FONT}; color: var(--text); background: #222b3b; border: 2px solid #3a475e;
+  border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 38px;
+}
+.rk-btn:hover { background: #2c3850; border-color: #5a6c8c; }
+.rk-btn:focus-visible { outline: 3px solid #ffe14d; outline-offset: 2px; }
+.rk-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.rk-btn[aria-pressed="true"] { background: #3b4a66; border-color: var(--text); box-shadow: inset 0 -3px 0 #ffe14d; }
+.rk-speed[aria-pressed="true"], .rk-run-btn[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+.rk-btn:active { transform: translateY(1px); }
+.rk-speed { padding: 6px 8px; min-width: 42px; }
+.rk-select {
+  font: 700 17px ${FONT}; color: var(--text); background: #222b3b; border: 2px solid #3a475e;
+  border-radius: 8px; padding: 6px 8px; min-height: 38px; max-width: 260px;
+}
+.rk-script-status { color: #ffe14d; font-weight: 800; font-size: 16px; }
+.rk-scenario-desc { margin: 2px 8px 0; color: var(--muted); font-size: 16px; }
+.rk-scenario-desc:empty { display: none; }
+.rk-main { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 12px; align-items: start; }
+.rk-chart-wrap { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 6px; min-width: 0; }
+.rk-chart { display: block; width: 100%; height: clamp(300px, 44vh, 560px); }
+.rk-judge {
+  background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px; max-height: calc(clamp(300px, 44vh, 560px) + 44px); overflow-y: auto;
+}
+.rk-judge h2 { margin: 0; font-size: 22px; font-weight: 900; }
+.rk-judge-note { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.2; }
+.rk-group h3 { margin: 0 0 4px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.rk-btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.rk-cmd { font-size: 15px; padding: 5px 4px; min-height: 36px; }
+.rk-cmd[data-cmd="powerCut"] { border-color: var(--alert); }
+.rk-cmd[data-cmd="killScheduler"] { border-color: #c49bff; }
+@media (max-width: 1100px) {
+  .rk-main { grid-template-columns: minmax(0, 1fr); }
+  .rk-run { margin-left: 0; }
+}
 .rk-hoods { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
 .rk-hood {
   background: var(--panel); border: 3px solid var(--accent); border-radius: 12px; padding: 10px 12px;

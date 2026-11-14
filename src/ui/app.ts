@@ -3,9 +3,10 @@
  * draws them. It reads only the Simulation contract; it never imports the sim
  * core, the policies or the scenarios (VALIDATION V08).
  */
-import type { AppDeps, FleetMode, Scenario, SimConfig, Simulation, Tick } from '../contracts';
+import type { AppDeps, Command, FleetMode, Scenario, SimConfig, Simulation, Tick } from '../contracts';
 import { fitCanvas } from './canvas';
 import { drawChart, type ChartEvent } from './chart';
+import { commandLabel, createCommandPanel } from './controls';
 import { el, setText } from './dom';
 import { createScoreboard, type Scoreboard } from './scoreboard';
 import { drawStreet } from './street';
@@ -24,16 +25,29 @@ export interface AppHandle {
   readonly root: HTMLElement;
   readonly sims: readonly Simulation[];
   readonly tick: Tick;
-  /** Steps every neighbourhood the same number of ticks. */
+  readonly paused: boolean;
+  readonly speed: number;
+  readonly scenario: Scenario | null;
+  /** Steps every neighbourhood the same number of ticks, replaying the script if one is playing. */
   advance(ticks: number): void;
   render(): void;
   /** One animation frame at the given time in milliseconds. */
   frame(nowMs: number): void;
+  /** Sends one command to every neighbourhood, on the same tick. */
+  send(command: Command): void;
+  setSpeed(multiplier: number): void;
+  setPaused(paused: boolean): void;
+  /** Rebuilds every neighbourhood from the current scenario's config at tick 0. */
+  reset(): void;
+  selectScenario(id: string): void;
+  /** Resets, then replays the current scenario's script until its duration. */
+  playScript(): void;
   destroy(): void;
 }
 
 /** Simulated minutes per real second at 1× speed: a day in 24 seconds. */
 export const BASE_TICKS_PER_SECOND = 60;
+export const SPEEDS: readonly number[] = [0.25, 0.5, 1, 2, 4, 8];
 /** Upper bound on ticks per frame, so a slow frame never stalls the page. */
 const MAX_TICKS_PER_FRAME = 240;
 
@@ -46,6 +60,13 @@ interface HoodView {
   readonly schedulerBadge: HTMLElement;
 }
 
+interface ScriptRun {
+  readonly scenario: Scenario;
+  cursor: number;
+}
+
+const SCALE_KINDS = new Set(['setBaseLoadScale', 'setRatingScale', 'setSupplyVoltage']);
+
 export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions = {}): AppHandle {
   const doc = root.ownerDocument;
   const modes = options.modes ?? DISPLAY_MODES;
@@ -56,7 +77,8 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
   let scenario: Scenario | null = deps.scenarios[0] ?? null;
   let sims: Simulation[] = [];
   const events: ChartEvent[] = [];
-  let ticksPerSecond = BASE_TICKS_PER_SECOND;
+  let script: ScriptRun | null = null;
+  let speed = 1;
   let paused = false;
   let carry = 0;
   let lastFrame: number | null = null;
@@ -66,22 +88,46 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
 
   const configFor = (sc: Scenario | null): SimConfig => (sc ? sc.configure(deps.defaultConfig) : deps.defaultConfig);
 
-  function rebuild(): void {
-    const config = configFor(scenario);
-    sims = modes.map((mode) => deps.makeSimulation(mode, config));
-    events.length = 0;
-    carry = 0;
-  }
-
   // ------------------------------------------------------------------ layout
   const clock = el(doc, 'div', { class: 'rk-clock', 'aria-label': 'Simulated time' });
+
+  const pauseBtn = el(doc, 'button', { type: 'button', class: 'rk-btn rk-run-btn', 'data-run': 'pause' });
+  const speedBtns = SPEEDS.map((s) =>
+    el(doc, 'button', {
+      type: 'button',
+      class: 'rk-btn rk-speed',
+      'data-speed': s,
+      title: `${s}× speed`,
+      text: s === 0.25 ? '¼×' : s === 0.5 ? '½×' : `${s}×`,
+    }),
+  );
+  const resetBtn = el(doc, 'button', { type: 'button', class: 'rk-btn rk-run-btn', 'data-run': 'reset', text: '↺ Reset' });
+  const scenarioSelect = el(
+    doc,
+    'select',
+    { class: 'rk-select', 'data-run': 'scenario', 'aria-label': 'Scenario' },
+    deps.scenarios.map((s) => el(doc, 'option', { value: s.id, text: s.title })),
+  );
+  const scriptBtn = el(doc, 'button', { type: 'button', class: 'rk-btn rk-run-btn', 'data-run': 'script', text: '▶ Play script' });
+  const scriptStatus = el(doc, 'span', { class: 'rk-script-status', role: 'status' });
+  const scenarioDesc = el(doc, 'p', { class: 'rk-scenario-desc' });
+
+  const runBar = el(doc, 'div', { class: 'rk-run', role: 'toolbar', 'aria-label': 'Run controls' }, [
+    pauseBtn,
+    el(doc, 'div', { class: 'rk-speeds', role: 'group', 'aria-label': 'Speed' }, speedBtns),
+    resetBtn,
+    scenarioSelect,
+    scriptBtn,
+    scriptStatus,
+  ]);
+
   const header = el(doc, 'header', { class: 'rk-top' }, [
     el(doc, 'div', { class: 'rk-brand' }, [
       el(doc, 'h1', { text: 'RICKSHAWS' }),
-      el(doc, 'p', { text: 'One transformer, one street of rickshaw chargers, the same night three ways' }),
+      el(doc, 'p', { text: 'Chargers that spread their own load' }),
     ]),
     clock,
-    el(doc, 'div', { class: 'rk-spacer' }),
+    runBar,
   ]);
 
   const chart = el(doc, 'canvas', {
@@ -89,7 +135,11 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
     role: 'img',
     'aria-label': 'Load on the transformer over time for each neighbourhood, against its rating',
   });
-  const chartWrap = el(doc, 'section', { class: 'rk-chart-wrap' }, [chart]);
+  const judge = createCommandPanel(doc, (cmd) => send(cmd));
+  const main = el(doc, 'div', { class: 'rk-main' }, [
+    el(doc, 'section', { class: 'rk-chart-wrap' }, [scenarioDesc, chart]),
+    judge,
+  ]);
 
   const hoods: HoodView[] = modes.map((mode) => {
     const style = MODE_STYLE[mode];
@@ -121,11 +171,113 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
   });
   const hoodRow = el(doc, 'section', { class: 'rk-hoods' }, hoods.map((h) => h.card));
 
-  root.append(header, chartWrap, hoodRow);
+  root.append(header, main, hoodRow);
+
+  // ---------------------------------------------------------------- controls
+  function syncRunControls(): void {
+    setText(pauseBtn, paused ? '▶ Play' : '❚❚ Pause');
+    pauseBtn.setAttribute('aria-pressed', String(paused));
+    for (const b of speedBtns) b.setAttribute('aria-pressed', String(Number(b.dataset.speed) === speed));
+    if (scenario) scenarioSelect.value = scenario.id;
+    setText(scenarioDesc, scenario ? scenario.description : '');
+    scriptBtn.disabled = !scenario || scenario.script.length === 0;
+  }
+
+  /** Marks which level of each scale command is in force. */
+  function syncPressed(cmd: Command | null): void {
+    for (const b of judge.querySelectorAll<HTMLButtonElement>('button[data-cmd]')) {
+      const kind = b.dataset.cmd!;
+      if (!SCALE_KINDS.has(kind)) continue;
+      if (cmd === null) b.setAttribute('aria-pressed', String(Number(b.dataset.value) === 1));
+      else if (cmd.kind === kind) {
+        const v = 'scale' in cmd ? cmd.scale : 'perUnit' in cmd ? cmd.perUnit : NaN;
+        b.setAttribute('aria-pressed', String(Number(b.dataset.value) === v));
+      }
+    }
+  }
+
+  function send(command: Command): void {
+    const tick = sims[0]?.tick ?? 0;
+    for (const sim of sims) sim.apply(command);
+    events.push({ tick, label: commandLabel(command) });
+    syncPressed(command);
+  }
+
+  function rebuild(): void {
+    const config = configFor(scenario);
+    sims = modes.map((mode) => deps.makeSimulation(mode, config));
+    events.length = 0;
+    carry = 0;
+    syncPressed(null);
+  }
+
+  function reset(): void {
+    script = null;
+    setText(scriptStatus, '');
+    rebuild();
+    render();
+  }
+
+  function setSpeed(multiplier: number): void {
+    if (SPEEDS.includes(multiplier)) speed = multiplier;
+    syncRunControls();
+  }
+
+  function setPaused(p: boolean): void {
+    paused = p;
+    lastFrame = null;
+    syncRunControls();
+  }
+
+  function selectScenario(id: string): void {
+    const next = deps.scenarios.find((s) => s.id === id);
+    if (!next) return;
+    scenario = next;
+    syncRunControls();
+    reset();
+  }
+
+  function playScript(): void {
+    if (!scenario) return;
+    reset();
+    script = { scenario, cursor: 0 };
+    setText(scriptStatus, `Script playing: ${scenario.title}`);
+    setPaused(false);
+  }
+
+  pauseBtn.addEventListener('click', () => setPaused(!paused));
+  for (const b of speedBtns) b.addEventListener('click', () => setSpeed(Number(b.dataset.speed)));
+  resetBtn.addEventListener('click', () => reset());
+  scenarioSelect.addEventListener('change', () => selectScenario(scenarioSelect.value));
+  scriptBtn.addEventListener('click', () => playScript());
+
+  const onKey = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement | null;
+    if (t && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(t.tagName)) return;
+    if (e.key === ' ') {
+      e.preventDefault();
+      setPaused(!paused);
+    }
+  };
+  doc.addEventListener('keydown', onKey);
 
   // ---------------------------------------------------------------- running
   function advance(ticks: number): void {
     for (let i = 0; i < ticks; i++) {
+      if (script) {
+        const t = sims[0]?.tick ?? 0;
+        const lines = script.scenario.script;
+        while (script.cursor < lines.length && lines[script.cursor]!.atTick <= t) {
+          send(lines[script.cursor]!.command);
+          script.cursor++;
+        }
+        if (t >= script.scenario.durationTicks) {
+          setText(scriptStatus, `Script finished: ${script.scenario.title}`);
+          script = null;
+          setPaused(true);
+          return;
+        }
+      }
       for (const sim of sims) sim.step();
     }
   }
@@ -165,7 +317,7 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
       const dt = lastFrame === null ? 0 : Math.min(250, Math.max(0, nowMs - lastFrame));
       lastFrame = nowMs;
       if (!paused) {
-        carry += (dt / 1000) * ticksPerSecond;
+        carry += (dt / 1000) * BASE_TICKS_PER_SECOND * speed;
         const n = Math.min(MAX_TICKS_PER_FRAME, Math.floor(carry));
         carry = Math.min(carry - n, MAX_TICKS_PER_FRAME);
         advance(n);
@@ -175,7 +327,7 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
       // Nothing may throw in a running demo: stop the loop and say so on screen.
       failed = true;
       console.error(err);
-      root.append(el(doc, 'p', { role: 'alert', class: 'rk-error', text: 'The simulation stopped with an error. Press reset.' }));
+      root.append(el(doc, 'p', { role: 'alert', class: 'rk-error', text: 'The simulation stopped with an error. Reload the page.' }));
     }
   }
 
@@ -188,6 +340,7 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
   }
 
   rebuild();
+  syncRunControls();
   render();
   if (options.autoStart && raf_) raf = raf_(loop);
 
@@ -199,12 +352,28 @@ export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions 
     get tick() {
       return sims[0]?.tick ?? 0;
     },
+    get paused() {
+      return paused;
+    },
+    get speed() {
+      return speed;
+    },
+    get scenario() {
+      return scenario;
+    },
     advance,
     render,
     frame,
+    send,
+    setSpeed,
+    setPaused,
+    reset,
+    selectScenario,
+    playScript,
     destroy() {
       destroyed = true;
       if (raf !== null && caf_) caf_(raf);
+      doc.removeEventListener('keydown', onKey);
       root.replaceChildren();
     },
   };
