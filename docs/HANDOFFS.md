@@ -128,7 +128,7 @@ The project is a browser simulation of one neighbourhood transformer with 200 ri
 
 Setup: fetch origin and check out a fresh origin/build. The working branch is build, not main: every branch starts from origin/build and every PR targets build. Never push to main.
 
-Read, in this order: AGENTS.md, docs/UI.md in full (it is the specification; follow it closely), item B65 in docs/BUILD.md section 3, src/contracts.ts in full, docs/CONTRACTS.md sections 7 to 9, and docs/VALIDATION.md rows V08 and V09. Then read the existing code under src/ui/ and tests/ui/, because you are replacing parts of it and keeping others.
+Read, in this order: AGENTS.md, docs/UI.md in full, item B65 in docs/BUILD.md section 3, src/contracts.ts in full, docs/CONTRACTS.md sections 7 to 9, and docs/VALIDATION.md rows V08 and V09. Then read the existing code under src/ui/ and tests/ui/, because you are replacing parts of it and keeping others.
 
 Resume check: read docs/status/lane-d.md, git log and the open PRs. If a lane-d/B65 branch or PR exists, carry on from it.
 
@@ -136,11 +136,11 @@ Do item B65, then stop. Branch lane-d/B65-map-ui from fresh origin/build. Work i
 
 You own: index.html, src/ui/**, public/**, tests/ui/**, docs/UI.md, and everything lane D owned before. Do not edit anything else. src/main.ts belongs to lane A and already calls mountApp from src/ui/index.ts; keep that export and its type.
 
-How to build it: keep the run loop in src/ui/app.ts, the fake simulation and dev page in src/ui/dev/, and the chart and time helpers. Replace the street view with the map in docs/UI.md section 3. Replace the styling, scoreboard, legend and controls to match sections 2, 5 and 6. The map layout (charger id and feeder to x and y) is a pure function with its own tests. Develop against the fake simulation on the dev page, then check the real page.
+How to build it: keep the run loop in src/ui/app.ts, the fake simulation and dev page in src/ui/dev/, and the chart and time helpers where they still fit. Replace the street view with your map. Replace the styling, scoreboard, legend and controls to match your design. The map layout (charger id and feeder to x and y) is a pure function with its own tests. Develop against the fake simulation on the dev page, then check the real page.
 
 Hard rules: nothing under src/ui/ imports from src/sim/, src/policies/ or src/scenarios/. Every number on screen is read from metrics(), history() or snapshot(); never compute or invent a figure, and show no real-world statistics. Canvas 2D and plain DOM only: no framework, no chart or map library, no network requests. Every command control keeps a data-cmd attribute and sends its command to every simulation, shown or hidden. Keep the tests for V08 and V09 passing; do not delete or weaken a test to get a pass, and change one only where it tested the old layout's structure.
 
-Look matters here. Follow docs/UI.md section 6 exactly: one flat neutral near-black background, one amber, one red, off-white ink, system fonts, square corners, no gradients, glows, shadows, rounded cards, icon sets or emoji, and nothing teal or purple. It should read as a printed diagram of a street at night, not a dashboard. Do not add anything listed in section 8.
+You design it. docs/UI.md sections 1, 7 and 8 are requirements: a minimal top-down 2D map that shows the product, the rules that have not changed, and the list of things left out of this version. Sections 2 to 6 (layout, how the map is drawn, the evidence strip, the actions, the visual language) are a starting proposal that you may change or replace. If you have a design skill available, such as a UI or UX skill, use it before you write code, and decide the layout, colour, type and wording yourself. The one thing the team asked for is that it must not look like a generic AI-built dashboard: the first version was a dark navy panel layout with teal, orange and purple accents and rounded cards, and it was rejected. Update docs/UI.md in the same PR so it describes what you actually built.
 
 Before the last PR, run the built page in a browser at 1920 by 1080 through a real night that includes a power cut, and attach a screenshot to the PR. If you cannot take one, say so in the status file under checks not run.
 

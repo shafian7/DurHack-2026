@@ -110,7 +110,7 @@ A button, off by default, that adds a fourth neighbourhood running the `stagger`
 **B64 — backup video support.** A shot list for the scripted scenario and a checklist for the human who records and uploads it.
 
 **B65 — the map interface.** Read: `docs/UI.md` in full, CONTRACTS §7 to §9, VALIDATION rows V08 and V09.
-Rebuild the interface as the top-down map MVP in `docs/UI.md`: two maps by default (ordinary chargers and ours), three numbers under each, one evidence strip, one action bar, with the scheduler and random-delay maps as switches. Reuse the run loop, fake simulation and dev page already in `src/ui/`; replace the street view, styling, scoreboard, legend and controls. Added on 15 November.
+Design and rebuild the interface as a minimal top-down 2D map. Lane D owns the design: `docs/UI.md` §1, §7 and §8 are requirements and §2 to §6 are a starting proposal it may replace. Update `docs/UI.md` to match what is built. Reuse the run loop, fake simulation and dev page already in `src/ui/`; replace the street view, styling, scoreboard, legend and controls. Added on 15 November.
 *Accepted when:* V08 and V09 pass; the layout function's tests pass; `npm run typecheck`, `npm test` and `npm run build` pass; and the PR carries a screenshot of a real night at 1920 × 1080 that includes a power cut.
 
 **B66 — iterate.** After B65 merges, stop. The team looks at it and gives changes. Do not add anything from UI §8 without being asked.
