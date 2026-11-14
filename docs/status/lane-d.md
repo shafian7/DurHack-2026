@@ -47,3 +47,26 @@ The integration tests check seeds 1 to 3 of these on every CI run.
 **Checks not run:** the local rule in the demo (lane B has not landed `local.ts`). Nothing in a browser.
 
 **What depends on it:** `src/main.ts` picks up `createScheduler` by glob for the central neighbourhood. Lane B's experiment uses it for the central mode and for G2 clause 6.
+
+## B62 — sources and pitch
+
+**Files changed:** `docs/SOURCES.md`, `docs/PITCH.md`, `docs/status/lane-d.md`.
+
+**What was done:** searched for each SPEC §1 / VALIDATION §6 figure, opened a source where one could be fetched, and recorded the link, date, exact wording and a verdict. Checked the comparisons from memory. Searched the literature and Devpost for voltage- and frequency-responsive charging. Wrote a three-minute script that follows VALIDATION §4, with every experiment figure left as a marked ⟦GAP⟧.
+
+**Figure verdicts**
+
+- S1, BRTA over 60 lakh, 10 to 12 lakh in Dhaka: **usable**, attributed (UNB via TBS, 8 August 2025). Other official counts differ (50 to 80 lakh).
+- S2, 16,059 MW against 12,388 MW, 3,671 MW deficit: **usable with change**. It is a PGCB reading at 3 pm on Sunday 9 August 2026 (The New Nation, 11 August 2026), not a figure for the month. The pitch does not need it.
+- S3, Tk 4,000 crore a year: **usable**, as the Home Minister in Parliament on 7 September 2026, revenue loss (The Financial Express, 8 September 2026).
+- S4, registration: **usable** as "the government says it is bringing them under registration" (UNB via TBS 2025; State Minister in pv magazine, 21 August 2026). No final gazetted policy found.
+- S5, night charging overloads transformers and is left out of forecasts: **not usable as worded.** Only a BPDB official on night-time demand falling less after midnight is usable. The transformer and forecast claims were seen only in pages we could not open.
+- Comparisons: Ethernet back-off (S6), Chiu and Jain AIMD (S7) and Grid Friendly appliances (S10) are opened and usable. Jacobson 1988 (S8) and DESYNC (S9) were not opened and are not to be cited.
+- Prior art: voltage-dependent EV charging (Marinelli et al. 2016) and AIMD-based decentralised charging (Liu and McLoone 2013) do essentially what our local rule does. The pitch says so. No matching Devpost project found in one search. The nearest is a centralised transformer-aware scheduler simulation (Murmuration, October 2026).
+- Model assumptions: none sourced. Unopened snippets put rickshaw batteries at about 4.8 to 6 kWh, against our assumed 7 kWh. That is a note for lane A, not a change made here.
+
+**Commands run:** web searches and page fetches only. Several pages refused the fetch (HTTP 403), and PDFs could not be read (no PDF text tool on this machine). They are listed in SOURCES §5 as not opened. `npm run typecheck` exit 0 and `npm test` exit 0 (106 tests, unchanged: docs only).
+
+**Checks not run:** the script has not been read aloud or timed. Nobody but this session has checked the sources.
+
+**What depends on it:** B63 (CLAIMS.md and the Devpost draft) uses these verdicts. Gaps fill from lane B's `docs/RESULTS.md` (B23, B24).
