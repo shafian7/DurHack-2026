@@ -31,7 +31,7 @@ const stat = (big: string, text: string, src: string): string =>
 export const SEGMENTS: readonly Segment[] = [
   {
     id: 'title',
-    say: 'Rickshaws. Chargers that read the wire.',
+    say: 'Trickle. Chargers that read the wire.',
     hold: 0.8,
     card: `<div class="eyebrow">DurHack 2026 · Neptune North</div><h1>Chargers that read the wire</h1><h2>Keeping Dhaka's battery rickshaws charging, even when the network goes down</h2>`,
   },
@@ -126,8 +126,8 @@ export const SEGMENTS: readonly Segment[] = [
   {
     id: 'close',
     say:
-      "Rickshaws. Nothing to connect, so nothing to cut.",
+      "Trickle. Nothing to connect, so nothing to cut.",
     hold: 3.0,
-    card: `<div class="eyebrow">RICKSHAWS</div><h1>Nothing to connect,<br>so nothing to cut</h1><h2>Alex · Shafian · Aryan · Aaron<br>DurHack 2026 · Neptune North</h2><div class="note">Map data © OpenStreetMap contributors, ODbL</div>`,
+    card: `<div class="eyebrow">TRICKLE</div><h1>Nothing to connect,<br>so nothing to cut</h1><h2>Alex · Shafian · Aryan · Aaron<br>DurHack 2026 · Neptune North</h2><div class="note">Map data © OpenStreetMap contributors, ODbL</div>`,
   },
 ];

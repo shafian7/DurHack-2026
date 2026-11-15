@@ -1,4 +1,4 @@
-# RICKSHAWS: the Dhanmondi plan
+# TRICKLE: the Dhanmondi plan
 
 **Written:** Sunday 15 November 2026, about 01:00, on the `shafian` branch. It builds on baseline 0.2 (the documents in `docs/`), which stay the reference for anything this plan does not change.
 **Why:** the team rejected the first interface, which looked like a terminal and was a diagram of one street. The new direction is a clean top-down map of a real part of Dhanmondi, Dhaka. On it, two copies of the same neighbourhood run side by side on the same night, one with ordinary chargers and one with our smart chargers. Without the smart chargers a transformer overheats and bursts.
@@ -9,7 +9,7 @@ One screen, light and calm, readable from three metres:
 
 ```text
 +--------------------------------------------------------------------------------+
-|  RICKSHAWS · Dhanmondi, Dhaka           Night 1 · 22:40     ▶  ×1 ×4 ×16  ↺   |
+|  TRICKLE · Dhanmondi, Dhaka           Night 1 · 22:40     ▶  ×1 ×4 ×16  ↺   |
 +---------------------------------------+----------------------------------------+
 |  Ordinary chargers                    |  Smart chargers (no server, no messages)|
 |                                       |                                        |

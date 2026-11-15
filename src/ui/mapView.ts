@@ -263,7 +263,7 @@ export class MapView {
         const flash = since < CUT_FLASH_MS ? 1 - since / CUT_FLASH_MS : 0;
         const gap = 8 + 10 * Math.min(1, since / 400);
         const mid = len / 2;
-        ctx.strokeStyle = flash > 0 ? `rgba(255,90,74,${0.4 + 0.6 * flash})` : 'rgba(158,163,214,0.4)';
+        ctx.strokeStyle = flash > 0 ? `rgba(229,72,77,${0.4 + 0.6 * flash})` : 'rgba(158,163,214,0.4)';
         ctx.lineWidth = 1.5 + 1.5 * flash;
         ctx.setLineDash([3, 4]);
         ctx.beginPath();
@@ -335,10 +335,10 @@ export class MapView {
     }
     // Label.
     const label = up ? 'Utility server' : 'No signal';
-    ctx.font = `600 10.5px ${font}`;
+    ctx.font = `400 12px ${font}`;
     const w = ctx.measureText(label).width + 14;
-    roundRect(ctx, hx - w / 2, hy - 36, w, 17, 8.5);
-    ctx.fillStyle = up ? 'rgba(19,25,74,0.94)' : colors.burst;
+    roundRect(ctx, hx - w / 2, hy - 36, w, 17, 3);
+    ctx.fillStyle = up ? 'rgba(17,22,46,0.94)' : colors.burst;
     ctx.fill();
     ctx.fillStyle = up ? colors.central : '#ffffff';
     ctx.textAlign = 'center';
@@ -427,11 +427,12 @@ export class MapView {
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.font = `600 9.5px ${font}`;
+      ctx.font = `400 11px ${font}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillStyle = 'rgba(11,18,48,0.88)';
-      ctx.fillRect(box.x + box.w / 2 - 9, box.y - 11, 18, 10);
+      const idW = ctx.measureText(g.id).width + 6;
+      ctx.fillRect(box.x + box.w / 2 - idW / 2, box.y - 11, idW, 10);
       ctx.fillStyle = colors.ink;
       ctx.fillText(g.id, box.x + box.w / 2, box.y - 1);
 
@@ -472,7 +473,7 @@ export class MapView {
           ctx.strokeRect(x - 0.5, y - 0.5, CELL + 1, CELL + 1);
         }
         if (arriving) {
-          ctx.fillStyle = 'rgba(74,222,154,0.35)';
+          ctx.fillStyle = 'rgba(108,203,143,0.35)';
           ctx.fillRect(x - 1, y - 1, CELL + 2, CELL + 2);
         }
       }
@@ -530,7 +531,7 @@ export class MapView {
           const pulse = 0.5 + 0.5 * Math.sin(frame.now / 160);
           ctx.beginPath();
           ctx.arc(x, y, r + 7 + 3 * pulse, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(226,85,63,${0.12 + 0.12 * pulse})`;
+          ctx.fillStyle = `rgba(229,72,77,${0.12 + 0.12 * pulse})`;
           ctx.fill();
         }
         ctx.save();
@@ -562,9 +563,9 @@ export class MapView {
       // Label card: id, load, temperature.
       const label = tv.burst ? `${t.id} · BURST` : tv.tripped ? `${t.id} · no power` : `${t.id} · ${Math.round(share * 100)}%`;
       const temp = `${Math.round(tv.hotSpotC)}°C`;
-      ctx.font = `600 11px ${font}`;
+      ctx.font = `400 13px ${font}`;
       const w1 = ctx.measureText(label).width;
-      ctx.font = `500 11px ${font}`;
+      ctx.font = `400 13px ${font}`;
       const w2 = ctx.measureText(temp).width;
       const w = w1 + w2 + 26;
       const lx = x - w / 2;
@@ -572,22 +573,22 @@ export class MapView {
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.45)';
       ctx.shadowBlur = 6;
-      roundRect(ctx, lx, ly, w, 20, 10);
+      roundRect(ctx, lx, ly, w, 20, 3);
       ctx.fillStyle = tv.burst ? colors.burst : colors.panel;
       ctx.fill();
       ctx.restore();
       if (!tv.burst) {
-        roundRect(ctx, lx, ly, w, 20, 10);
+        roundRect(ctx, lx, ly, w, 20, 3);
         ctx.strokeStyle = colors.line;
         ctx.lineWidth = 1;
         ctx.stroke();
       }
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
-      ctx.font = `600 11px ${font}`;
+      ctx.font = `400 13px ${font}`;
       ctx.fillStyle = tv.burst ? '#ffffff' : colors.ink;
       ctx.fillText(label, lx + 9, ly + 10.5);
-      ctx.font = `500 11px ${font}`;
+      ctx.font = `400 13px ${font}`;
       ctx.fillStyle = tv.burst ? '#ffd9d3' : heatColor(tv.hotSpotC, frame.burstC);
       ctx.fillText(temp, lx + 17 + w1, ly + 10.5);
     });

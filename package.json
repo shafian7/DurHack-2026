@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "RICKSHAWS: a fleet of rickshaws following local rules, with no dispatcher and no messages. DurHack 2026.",
+  "description": "TRICKLE: a fleet of rickshaws following local rules, with no dispatcher and no messages. DurHack 2026.",
   "engines": {
     "node": ">=20"
   },

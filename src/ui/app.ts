@@ -177,7 +177,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   // -------------------------------------------------------------- top bar
   const top = el('div', 'top');
   const brand = el('div', 'brand');
-  brand.append(el('h1', undefined, 'RICKSHAWS'), el('span', undefined, `One night of battery-rickshaw charging in ${deps.map.name}`));
+  brand.append(el('h1', undefined, 'TRICKLE'), el('span', undefined, `One night of battery-rickshaw charging in ${deps.map.name}`));
 
   const clock = el('div', 'clock');
   const clockTime = el('div', 't');

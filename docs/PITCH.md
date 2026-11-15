@@ -86,7 +86,7 @@ From [CLAIMS.md](CLAIMS.md) "must not say": that the model matches a real feeder
 
 ### Name
 
-RICKSHAWS: chargers that spread their own load
+TRICKLE: chargers that spread their own load
 
 ### Tagline
 

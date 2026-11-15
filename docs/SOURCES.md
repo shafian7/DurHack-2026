@@ -21,7 +21,7 @@ How to read the verdicts:
 
 - **Source opened:** The New Nation (editorial), 11 August 2026, citing the Power Grid Company of Bangladesh (PGCB). <https://dailynewnation.com/news/848597>
 - **Wording:** "The PGCB further said electricity demand stood at 16,059 megawatts at 3pm on Sunday" … "supply was only 12,388 megawatts, resulting in a deficit of 3,671 megawatts."
-- **Verdict: usable with change.** It is a one-hour reading, not a monthly figure: "at 3 pm on Sunday 9 August 2026, PGCB reported demand of 16,059 MW against 12,388 MW supplied". Say "one afternoon in August", not "in August". The Daily Observer carried the same figures (<https://observerbd.com/news/587300>, refused our fetch with HTTP 403, so not opened). The figure is about the national supply shortage. RICKSHAWS does not address that, and the claims ledger forbids implying it does.
+- **Verdict: usable with change.** It is a one-hour reading, not a monthly figure: "at 3 pm on Sunday 9 August 2026, PGCB reported demand of 16,059 MW against 12,388 MW supplied". Say "one afternoon in August", not "in August". The Daily Observer carried the same figures (<https://observerbd.com/news/587300>, refused our fetch with HTTP 403, so not opened). The figure is about the national supply shortage. TRICKLE does not address that, and the claims ledger forbids implying it does.
 
 ### S3. "The Home Minister told Parliament that illegal charging costs around Tk 4,000 crore a year"
 
@@ -62,7 +62,7 @@ How to read the verdicts:
 
 ## 3. Prior art: voltage-responsive and decentralised charging
 
-We searched the literature and Devpost for chargers that respond to their own voltage or frequency. **The field exists and is active.** RICKSHAWS is a demonstration of a known family of ideas applied to an informal fleet. It is not a new method. What we found:
+We searched the literature and Devpost for chargers that respond to their own voltage or frequency. **The field exists and is active.** TRICKLE is a demonstration of a known family of ideas applied to an informal fleet. It is not a new method. What we found:
 
 | # | Work | Opened? | What it does | How close |
 | --- | --- | --- | --- | --- |

@@ -42,7 +42,7 @@ The same idea is used elsewhere: TCP congestion control backs senders off when t
 
 ## 3. Why it suits Neptune North
 
-| Criterion | How RICKSHAWS shows it |
+| Criterion | How TRICKLE shows it |
 | --- | --- |
 | Common goal | Keep the transformer on and send every rickshaw out charged |
 | Independent decisions | Each charger acts on its own socket voltage and its own battery level |

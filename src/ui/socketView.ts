@@ -118,7 +118,7 @@ export class SocketView {
     const x = (t: number): number => left + ((t - start) / SOCKET_WINDOW) * w;
     const y = (v: number): number => top + h - ((Math.max(vMin, Math.min(vMax, v)) - vMin) / (vMax - vMin)) * h;
 
-    ctx.font = `500 10px ${font}`;
+    ctx.font = `400 11px ${font}`;
     ctx.fillStyle = colors.faint;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';

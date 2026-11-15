@@ -1,4 +1,4 @@
-# RICKSHAWS — chargers that spread their own load
+# TRICKLE — chargers that spread their own load
 
 **Baseline:** 0.2 · rewritten Saturday 14 November 2026, about 23:00, during DurHack 2026. It replaces baseline 0.1 (a fleet-dispatch simulation), which was never built.
 **Team:** Alex (akurkar07), Shafian (shafian7), Aryan (Aryansaha13414), Aaron (AaronMathew026)

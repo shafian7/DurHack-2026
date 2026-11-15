@@ -1,4 +1,4 @@
-# RICKSHAWS · Dhanmondi
+# TRICKLE · Dhanmondi
 
 **Battery-rickshaw chargers that spread their own load.** DurHack 2026, Neptune North track.
 

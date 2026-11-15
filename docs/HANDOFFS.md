@@ -14,7 +14,7 @@ Each prompt runs the whole lane from start to finish without asking anything. If
 ## A. Alex — core and integration (Ultra)
 
 ```text
-You are running lane A of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going.
+You are running lane A of TRICKLE in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going.
 
 The project is a browser simulation of one neighbourhood transformer with 200 rickshaw chargers that spread their own load by watching only their own socket voltage. It is software only.
 
@@ -40,7 +40,7 @@ Stop only when every lane A item is merged, or at the gate G5 feature freeze (09
 ## B. Shafian — charger rules and experiments (Pro)
 
 ```text
-You are running lane B of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going. This lane holds the charger rule that the project's whole claim rests on.
+You are running lane B of TRICKLE in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going. This lane holds the charger rule that the project's whole claim rests on.
 
 The project is a browser simulation of one neighbourhood transformer with 200 rickshaw chargers that spread their own load by watching only their own socket voltage. It is software only.
 
@@ -68,7 +68,7 @@ Stop only when every lane B item is merged, or at the gate G5 feature freeze (09
 **Do not run this prompt again.** The first interface was rejected on 15 November. Aryan runs prompt C2 below.
 
 ```text
-You are running lane C of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going. This lane is everything a judge sees and touches, and the interactive demo is the product.
+You are running lane C of TRICKLE in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going. This lane is everything a judge sees and touches, and the interactive demo is the product.
 
 The project is a browser simulation of one neighbourhood transformer with 200 rickshaw chargers that spread their own load by watching only their own socket voltage. The picture to land is the naive evening spike beside the self-spread curve. It is software only.
 
@@ -94,7 +94,7 @@ Stop only when every lane C item is merged, or at the gate G5 feature freeze (09
 ## D. Aaron — scheduler, scenarios and pitch (Pro)
 
 ```text
-You are running lane D of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going. This lane covers the central scheduler baseline, the demo scenarios and the evidence behind the pitch.
+You are running lane D of TRICKLE in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going. This lane covers the central scheduler baseline, the demo scenarios and the evidence behind the pitch.
 
 The project is a browser simulation of one neighbourhood transformer with 200 rickshaw chargers that spread their own load by watching only their own socket voltage. It is software only.
 
@@ -122,7 +122,7 @@ Stop only when every lane D item is merged, or at the gate G5 feature freeze (09
 Added about 01:00 on Sunday 15 November. Run this one now. It replaces prompt C. Aaron keeps prompt D.
 
 ```text
-You are running lane C of RICKSHAWS in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going.
+You are running lane C of TRICKLE in the GitHub repository shafian7/DurHack-2026, unattended, during a hackathon that ends about midday on Sunday 15 November 2026. Nobody is watching this session. Do not ask questions or wait for approval: when something is unclear, take the most reasonable reading, note it in the PR description, and keep going.
 
 The project is a browser simulation of one neighbourhood transformer with 200 rickshaw chargers that spread their own load by watching only their own socket voltage. The team rejected the first interface (items B40 to B43). Your job now is to redesign and rebuild it as a minimal top-down 2D map.
 

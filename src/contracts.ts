@@ -1,5 +1,5 @@
 /**
- * RICKSHAWS shared contracts, baseline 0.2 (14 November 2026).
+ * TRICKLE shared contracts, baseline 0.2 (14 November 2026).
  * "Chargers that spread their own load."
  *
  * Types and constants only. Meanings, units and tick order live in

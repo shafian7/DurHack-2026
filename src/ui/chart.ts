@@ -42,7 +42,7 @@ export function drawChart(canvas: HTMLCanvasElement, width: number, height: numb
   const y = (share: number): number => top + h - (Math.min(Y_MAX, share) / Y_MAX) * h;
 
   // Grid and axis labels.
-  ctx.font = `500 10px ${font}`;
+  ctx.font = `400 12px ${font}`;
   ctx.fillStyle = colors.muted;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
@@ -97,7 +97,7 @@ export function drawChart(canvas: HTMLCanvasElement, width: number, height: numb
 
   // Now.
   if (time >= t0 && time <= t1) {
-    ctx.strokeStyle = 'rgba(238,240,255,0.35)';
+    ctx.strokeStyle = 'rgba(241,236,221,0.35)';
     ctx.beginPath();
     ctx.moveTo(x(time), top);
     ctx.lineTo(x(time), top + h);

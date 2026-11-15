@@ -4,7 +4,7 @@
 
 ## Look and entry (merged from Aryan's branch, 15 November)
 
-The night theme comes from Aryan's intro page: navy grounds, lavender text and #FFD966 yellow for light (homes lit at night, the play button, active controls), and the RICKSHAWS wordmark in Press Start 2P. Blacked-out buildings are near-black with a faint outline. `public/intro.html` is his pixel-art intro animation; its CONTINUE button fades out and opens `index.html`, which lands on story mode. The utility server, network outage button, story bar, socket view and film cards use the same palette, with the server's purple brightened to #A78BFA so it reads on navy.
+The night theme comes from Aryan's intro page: navy grounds, lavender text and #FFD966 yellow for light (homes lit at night, the play button, active controls), and the TRICKLE wordmark in Press Start 2P. Blacked-out buildings are near-black with a faint outline. `public/intro.html` is his pixel-art intro animation; its CONTINUE button fades out and opens `index.html`, which lands on story mode. The utility server, network outage button, story bar, socket view and film cards use the same palette, with the server's purple brightened to #A78BFA so it reads on navy.
 
 ## Story mode (default landing view, 15 November)
 

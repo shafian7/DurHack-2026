@@ -1,4 +1,4 @@
-# Development assistant instructions — RICKSHAWS
+# Development assistant instructions — TRICKLE
 
 These instructions apply to this repository only. They cover the four Claude sessions building the project: Alex's (Ultra, lane A) and three teammates' (Pro, lanes B, C and D). They grant no credentials and authorise no action outside this repository.
 
