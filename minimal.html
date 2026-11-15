@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RICKSHAWS · minimal mockup</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+      canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+      #tip {
+        position: fixed; pointer-events: none; display: none; white-space: pre;
+        font: 13px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace;
+        padding: 6px 9px; letter-spacing: 0.02em;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="tip"></div>
+    <script type="module" src="/src/minimal/main.ts"></script>
+  </body>
+</html>
