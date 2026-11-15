@@ -43,6 +43,13 @@ How to read the verdicts:
 - **Verdict: partly usable.** Usable: "a BPDB official said night-time demand now falls by about 1,000 MW after midnight instead of about 3,000 MW, and people in the power sector link this to rickshaw charging." **Not usable:** "overloads local transformers" and "left out of load forecasts". We found these claims only in search snippets (a Dhaka Tribune report quoting an anonymous senior DESCO official, and an interview citing a Khulna study of a 250 kVA transformer), and those pages refused our fetch or were PDFs we could not read. Do not say either until someone opens a source.
 - **Related, opened (S3 link):** the Home Minister's statement that the government estimates the vehicles use about 5% of electricity generation. pv magazine (S4 link) gives "roughly 800 MW to 1 GW, about 5% of national generation". Usable with attribution.
 
+### S11. "Mobile internet was shut down across Bangladesh in July 2024"
+
+- **Source opened:** Wikipedia, "2024 Bangladesh internet blackouts" (read 15 November 2026). <https://en.wikipedia.org/wiki/2024_Bangladesh_internet_blackouts>
+- **Wording:** It quotes Cloudflare Radar: "Bangladesh is experiencing a near complete #Internet outage after a government-ordered shutdown of mobile networks." The nationwide shutdown began on 18 July 2024. Broadband returned on 24 July and mobile internet on 28 July.
+- **Verdict: usable with attribution**, as "mobile internet was shut down nationwide for about ten days in July 2024". This is a secondary source; a news report or the Cloudflare Radar post should be opened before Devpost. Used as the first outage reason in the demo (`OUTAGE_REASONS` in `src/ui/app.ts`). Say it neutrally: it is an example of a network outage, not a political point.
+- **Not sourced:** "load-shedding drains mobile towers' backup batteries", the second outage reason. It is plausible but no source has been opened, so the demo labels the 30-minute backup a model assumption.
+
 ## 2. Comparisons from memory (SPEC §2, VALIDATION §6)
 
 | # | Claim | Source | Opened? | Verdict |

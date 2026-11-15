@@ -9,7 +9,7 @@ export const css = `
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: ${colors.bg}; color: ${colors.ink}; font-family: ${font}; -webkit-font-smoothing: antialiased; overflow: hidden; }
 button { font: inherit; color: inherit; }
-.app { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; height: 100vh; padding: 12px 14px 14px; }
+.app { display: grid; grid-template-rows: auto 1fr auto auto; gap: 10px; height: 100vh; padding: 12px 14px 14px; }
 
 /* ---------------------------------------------------------------- top bar */
 .top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
@@ -61,6 +61,24 @@ button { font: inherit; color: inherit; }
 .icon-btn.cut.done { background: ${colors.central}; border-color: ${colors.central}; color: #fff; }
 .vs { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; color: ${colors.muted}; white-space: nowrap; }
 
+/* ---------------------------------------------------------------- story caption */
+.maps.single { grid-template-columns: 1fr; }
+.story { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 18px; background: ${colors.panel}; border-radius: 18px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(20,30,45,.05), 0 6px 20px rgba(20,30,45,.06); }
+.dots { display: flex; gap: 6px; }
+.dot { border: 1px solid ${colors.line}; background: #fff; height: 30px; min-width: 30px; padding: 0 10px; border-radius: 999px; cursor: pointer; font-size: 12.5px; font-weight: 700; color: ${colors.muted}; }
+.dot.on { background: ${colors.ink}; color: #fff; border-color: ${colors.ink}; }
+.caption { min-width: 0; }
+.caption .kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: ${colors.muted}; font-weight: 700; }
+.caption .title { font-size: 18px; font-weight: 750; margin-top: 1px; }
+.caption .body { font-size: 13px; color: ${colors.muted}; margin-top: 2px; line-height: 1.4; }
+.reasons { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 380px; }
+.reasons span { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: ${colors.muted}; font-weight: 700; margin-right: 2px; }
+.reason { border: 1px solid ${colors.line}; background: #fff; border-radius: 999px; padding: 5px 11px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.reason.on { background: #efeafc; border-color: ${colors.central}; color: #4b2fa8; }
+.nav { display: flex; gap: 8px; }
+.primary-btn { background: ${colors.ink}; color: #fff; border-color: ${colors.ink}; min-width: 84px; justify-content: center; }
+.nav .icon-btn { justify-content: center; min-width: 70px; }
+
 /* ---------------------------------------------------------------- sheets */
 .sheet { height: 0; margin-top: -10px; padding: 0 18px; border-width: 0; overflow: hidden; border-radius: 22px; display: grid; grid-template-rows: auto 1fr; opacity: 0; pointer-events: none; transition: height .28s ease, margin-top .28s ease, padding .28s ease, opacity .2s; background: ${colors.panel}; box-shadow: 0 1px 2px rgba(20,30,45,.05), 0 10px 30px rgba(20,30,45,.07); }
 .sheet.open { height: clamp(170px, 26vh, 250px); margin-top: 0; padding: 14px 18px 12px; opacity: 1; pointer-events: auto; }
@@ -103,6 +121,8 @@ button { font: inherit; color: inherit; }
 kbd { font: inherit; font-weight: 650; background: #fff; border: 1px solid ${colors.line}; border-radius: 5px; padding: 0 5px; }
 
 @media (max-width: 1100px) {
+  .story { grid-template-columns: 1fr; gap: 10px; }
+  .reasons { justify-content: flex-start; max-width: none; }
   html, body { overflow: auto; }
   .app { height: auto; }
   .top { grid-template-columns: 1fr auto; }

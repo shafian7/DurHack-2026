@@ -2,6 +2,15 @@
 
 **Status:** built on the `shafian` branch, Sunday 15 November 2026. It replaces the first interface (B40 to B43) and the street-diagram proposal. The full plan is in [plan.md](../plan.md) §1 and §3.6.
 
+## Story mode (default landing view, 15 November)
+
+The page opens on a three-act story, with a caption bar under the maps (step dots, kicker, title, one-line body, Back and Next; the arrow keys also work). Each act starts close to its key moment, at the default 10× speed:
+
+1. **Act 1 · Dhanmondi today.** One large map of ordinary chargers (`naive`), opening at 22:00. The transformers overload and the east one bursts at about 23:30. The network button is hidden: there's no network yet.
+2. **Act 2 · The usual fix.** One large map of app-controlled chargers (`central`), opening at 20:30. The server keeps the load under the limit, then the network goes down at 21:30 and the transformer bursts at about 23:30. The presenter picks **why the network fails**: an internet shutdown (July 2024, sourced as S11), towers losing power (an assumption), or a server failure.
+3. **Act 3 · Our fix.** App-controlled and smart chargers side by side, with the same outage at 21:30. The app side bursts; the smart side shows "Nothing to lose". The caption invites a click on a garage bay for the socket view.
+4. **Free play.** The full page as below, with every control. `?at=HH:MM` or `?scene=free` in the address opens straight into free play.
+
 ## The story: the network fails, the wire doesn't (15 November)
 
 **Left: App-controlled chargers** (the `central` mode). A utility server tells each charger when to draw, over the mobile network. A purple **Utility server** sits on the map, with dashed data links to the ten garages and data pulses flowing out. While the network is up it keeps both transformers under their limit, so it is a fair rival. **Network outage** (red top-bar button, or X) takes the network down: the links snap, the server goes grey ("No signal"), and every charger falls back to charging flat out (BUILD D06). The east transformer bursts about two hours later. **Restore network** brings the server back, but a burst transformer stays dark. With **Outage at 21:00** on (the default, in Controls), the network drops by itself once per run.

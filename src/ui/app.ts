@@ -24,7 +24,51 @@ export interface UiDeps {
   readonly tolerance?: (soc: number) => number;
 }
 
-type SideMode = 'central' | 'local';
+type SideMode = 'naive' | 'central' | 'local';
+
+interface SideSpec {
+  readonly mode: SideMode;
+  readonly title: string;
+  readonly subtitle: string;
+  readonly color: string;
+}
+
+export type SceneId = 'today' | 'usual' | 'ours' | 'free';
+
+interface Scene {
+  readonly id: SceneId;
+  /** Short label for the step dots. */
+  readonly step: string;
+  readonly kicker: string;
+  readonly title: string;
+  readonly body: string;
+  readonly sides: readonly SideSpec[];
+  /** Tick the scene opens at. */
+  readonly start: number;
+  /** Tick the network drops by itself, or null. */
+  readonly cutAt: number | null;
+}
+
+/** Why the utility's network goes down, chosen by the presenter in acts 2 and 3. */
+export type OutageReason = 'shutdown' | 'towers' | 'server';
+
+export const OUTAGE_REASONS: Record<OutageReason, { label: string; why: string }> = {
+  shutdown: {
+    label: 'Internet shutdown',
+    why: 'Mobile internet is switched off nationwide, as happened in Bangladesh for about ten days in July 2024.',
+  },
+  towers: {
+    label: 'Towers lose power',
+    why: "Load-shedding has drained the mobile towers' backup batteries.",
+  },
+  server: {
+    label: 'Server failure',
+    why: "The utility's server crashes, or is knocked out by a cyberattack.",
+  },
+};
+
+/** The tick of a clock time on night one (hours before noon are the next morning). */
+const at = (h: number, m = 0): number => ((((h - 12) % 24) + 24) % 24) * 60 + m;
 
 interface Side {
   readonly mode: SideMode;
@@ -62,8 +106,6 @@ export function startTickFrom(search: string): number {
   const since = (((h - 12) % 24) + 24) % 24;
   return Math.max(DEFAULT_START_TICK, since * 60 + min);
 }
-/** The automatic cut, at 21:00 on night one, while rickshaws are still arriving. */
-const AUTO_CUT_TICK = 9 * 60;
 
 const ICONS = {
   play: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>',
@@ -101,14 +143,18 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
 
   const motion = new Motion(deps.map);
   let seed = 1;
-  const START_TICK = startTickFrom(typeof location === 'undefined' ? '' : location.search);
+  const search = typeof location === 'undefined' ? '' : location.search;
+  let START_TICK = startTickFrom(search);
+  /** When the network drops by itself in this scene, or null. */
+  let cutTick: number | null = null;
+  let reason: OutageReason = 'shutdown';
   let speed: number = SPEEDS[1];
   let playing = true;
   let heatwave = false;
   let carry = 0;
   /** Whether the central server's data link is up. */
   let linkUp = true;
-  /** Cut the link automatically at 21:00, so the story plays while the presenter talks. */
+  /** In free play, cut the link automatically at 21:00. */
   let autoCut = true;
   /** The automatic cut happens at most once per run, so a restored link stays up. */
   let autoCutDone = false;
@@ -154,7 +200,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const cutBtn = iconButton(ICONS.cut, 'Network outage', 'Take the mobile network down, so the utility server cannot reach its chargers (X)');
   cutBtn.classList.add('cut');
   cutBtn.dataset.cmd = 'killScheduler';
-  const restartBtn = iconButton(ICONS.restart, 'Restart', 'Restart tonight from 17:00 (R)');
+  const restartBtn = iconButton(ICONS.restart, 'Restart', 'Restart this scene (R)');
   const chartBtn = iconButton(ICONS.chart, 'Load graph', 'Show the load graph (G)');
   const controlsBtn = iconButton(ICONS.sliders, 'Controls', 'Change the night (C)');
   tools.append(play, seg, cutBtn, restartBtn, chartBtn, controlsBtn);
@@ -162,7 +208,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
 
   // -------------------------------------------------------------- maps
   const maps = el('div', 'maps');
-  const makeSide = (mode: SideMode, title: string, subtitle: string, color: string): Side => {
+  const makeSide = ({ mode, title, subtitle, color }: SideSpec): Side => {
     const panel = el('section', 'panel');
     panel.dataset.mode = mode;
     const stage = el('div', 'stage');
@@ -202,22 +248,68 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
       announced: new Set(),
     };
   };
-  const sides: Side[] = [
-    makeSide(
-      'central',
-      'App-controlled chargers',
-      'A utility server tells each charger when to draw, over the mobile network. Without instructions, chargers charge flat out.',
-      colors.central,
-    ),
-    makeSide(
-      'local',
-      'Smart chargers',
-      'No server and no link. Each charger senses only its own socket voltage and backs off when it sags.',
-      colors.local,
-    ),
+  const NAIVE: SideSpec = {
+    mode: 'naive',
+    title: 'Ordinary chargers',
+    subtitle: 'Every charger draws full power the moment a rickshaw plugs in.',
+    color: colors.naive,
+  };
+  const APP: SideSpec = {
+    mode: 'central',
+    title: 'App-controlled chargers',
+    subtitle: 'The usual fix: a utility server tells each charger when to draw, over the mobile network.',
+    color: colors.central,
+  };
+  const SMART: SideSpec = {
+    mode: 'local',
+    title: 'Smart chargers',
+    subtitle: 'Our fix: no server, no network. Each charger senses only its own socket voltage and backs off when it sags.',
+    color: colors.local,
+  };
+  const scenes: readonly Scene[] = [
+    {
+      id: 'today',
+      step: '1',
+      kicker: 'Act 1 of 3 · Dhanmondi today',
+      title: 'Every night, the transformers overload',
+      body: 'Rickshaws come home and every charger draws full power at once. The east transformer overheats until it fails.',
+      sides: [NAIVE],
+      start: at(22),
+      cutAt: null,
+    },
+    {
+      id: 'usual',
+      step: '2',
+      kicker: 'Act 2 of 3 · The usual fix',
+      title: 'Control every charger over the network',
+      body: 'A utility server schedules the chargers so the load stays under the limit. It works, until the network goes down at 21:30.',
+      sides: [APP],
+      start: at(20, 30),
+      cutAt: at(21, 30),
+    },
+    {
+      id: 'ours',
+      step: '3',
+      kicker: 'Act 3 of 3 · Our fix',
+      title: 'Chargers that read the wire',
+      body: 'The same outage hits both. Ours never used the network: each charger senses the voltage at its own socket. Click a garage bay to see what one charger feels.',
+      sides: [APP, SMART],
+      start: at(20, 30),
+      cutAt: at(21, 30),
+    },
+    {
+      id: 'free',
+      step: 'Free play',
+      kicker: 'Free play',
+      title: 'Break it yourself',
+      body: 'Everything is live. Cut the network, cause a heatwave or a power cut, and click any garage bay.',
+      sides: [APP, SMART],
+      start: startTickFrom(search),
+      cutAt: at(21),
+    },
   ];
-  const vs = el('div', 'vs glass', 'Same night');
-  maps.append(vs);
+  let scene: Scene = scenes[0]!;
+  let sides: Side[] = [];
 
   // -------------------------------------------------------------- socket view
   function select(target: { zone: number; id: number } | null): void {
@@ -274,11 +366,14 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const sheet = el('div', 'sheet');
   const sheetHead = el('header');
   const legend = el('span', 'legend');
-  legend.innerHTML = `
-    <span><i style="border-color:${colors.central}"></i>App-controlled · T1</span>
-    <span><i class="d" style="border-color:${colors.central}"></i>App-controlled · T2</span>
-    <span><i style="border-color:${colors.local}"></i>Smart · T1</span>
-    <span><i class="d" style="border-color:${colors.local}"></i>Smart · T2</span>`;
+  const buildLegend = (): void => {
+    legend.innerHTML = sides
+      .map((s) => {
+        const name = s.title.replace(' chargers', '');
+        return `<span><i style="border-color:${s.color}"></i>${name} · T1</span><span><i class="d" style="border-color:${s.color}"></i>${name} · T2</span>`;
+      })
+      .join('');
+  };
   const sheetClose = el('button', 'close', '✕');
   sheetClose.title = 'Close';
   sheetHead.append(el('h3', undefined, 'Load on each transformer tonight'), legend, sheetClose);
@@ -292,7 +387,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const popHead = el('header');
   const popClose = el('button', 'close', '✕');
   popClose.title = 'Close';
-  popHead.append(el('h3', undefined, 'Change the night, on both sides'), popClose);
+  popHead.append(el('h3', undefined, 'Change the night, on every map'), popClose);
   const actions = el('div', 'actions');
   const action = (title: string, sub: string, cmd: string, onClick: (b: HTMLButtonElement) => void): HTMLButtonElement => {
     const b = el('button', 'act');
@@ -320,9 +415,10 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   action('Stubborn chargers', '20% ignore the rule', 'stubbornChargers', () =>
     send({ kind: 'stubbornChargers', fraction: 0.2 }),
   );
-  const autoBtn = action('Outage at 21:00', 'Network drops by itself', 'autoCut', (b) => {
+  const autoBtn = action('Outage at 21:00', 'Free play: network drops by itself', 'autoCut', (b) => {
     autoCut = !autoCut;
     b.classList.toggle('on', autoCut);
+    if (scene.id === 'free') cutTick = autoCut ? at(21) : null;
   });
   autoBtn.classList.add('on');
   action('New night', 'Different arrivals', 'reset', () => {
@@ -346,8 +442,44 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   );
   pop.append(popHead, actions, key, note);
 
+  // -------------------------------------------------------------- story caption
+  const story = el('div', 'story');
+  const dots = el('div', 'dots');
+  const caption = el('div', 'caption');
+  const capKicker = el('div', 'kicker');
+  const capTitle = el('div', 'title');
+  const capBody = el('div', 'body');
+  caption.append(capKicker, capTitle, capBody);
+  const reasons = el('div', 'reasons');
+  const nav = el('div', 'nav');
+  const backBtn = el('button', 'icon-btn', 'Back');
+  const nextBtn = el('button', 'icon-btn primary-btn', 'Next');
+  nav.append(backBtn, nextBtn);
+  story.append(dots, caption, reasons, nav);
+  const dotButtons = scenes.map((sc) => {
+    const b = el('button', 'dot', sc.step);
+    b.title = sc.kicker;
+    b.addEventListener('click', () => goTo(sc.id));
+    dots.append(b);
+    return b;
+  });
+  const reasonButtons = (Object.keys(OUTAGE_REASONS) as OutageReason[]).map((r) => {
+    const b = el('button', 'reason', OUTAGE_REASONS[r].label);
+    b.title = OUTAGE_REASONS[r].why;
+    b.addEventListener('click', () => {
+      reason = r;
+      reasonButtons.forEach((x) => x.classList.toggle('on', x === b));
+    });
+    return b;
+  });
+  reasons.append(el('span', undefined, 'Why the network fails'), ...reasonButtons);
+  reasonButtons[0]!.classList.add('on');
+  const sceneIndex = (): number => scenes.findIndex((x) => x.id === scene.id);
+  backBtn.addEventListener('click', () => goTo(scenes[Math.max(0, sceneIndex() - 1)]!.id));
+  nextBtn.addEventListener('click', () => goTo(scenes[Math.min(scenes.length - 1, sceneIndex() + 1)]!.id));
+
   // The graph is a row of the page, so opening it shrinks the maps instead of covering them.
-  app.append(top, maps, sheet);
+  app.append(top, maps, story, sheet);
   document.body.append(pop);
 
   // -------------------------------------------------------------- open and close
@@ -375,7 +507,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   };
   /** Why the network changed, for the wording of the announcements. */
   type Reason = 'manual' | 'scheduled' | 'tower';
-  const setLink = (up: boolean, reason: Reason = 'manual'): void => {
+  const setLink = (up: boolean, cause: Reason = 'manual'): void => {
     if (up === linkUp) return;
     linkUp = up;
     const command: Command = up ? { kind: 'reviveScheduler' } : { kind: 'killScheduler' };
@@ -383,17 +515,23 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     cutBtn.classList.toggle('done', !up);
     cutBtn.innerHTML = up ? `${ICONS.cut}<span>Network outage</span>` : `${ICONS.link}<span>Restore network</span>`;
     cutBtn.dataset.cmd = up ? 'killScheduler' : 'reviveScheduler';
-    const at = clockText(sides[0]!.district.tick).time;
-    const [app, smart] = sides as [Side, Side];
-    if (!up) {
-      const why =
-        reason === 'tower'
-          ? 'The grid has been off too long and the mobile towers have run out of backup power.'
+    const time = clockText(sides[0]!.district.tick).time;
+    const why =
+      cause === 'tower'
+        ? 'The grid has been off too long and the mobile towers have run out of backup power.'
+        : cause === 'scheduled'
+          ? OUTAGE_REASONS[reason].why
           : 'The utility server can no longer reach the garages.';
-      showBanner(app, `<b>Mobile network down at ${at}</b>${why} Without instructions, every charger falls back to charging flat out.`, 'dark', 5000);
-      showBanner(smart, '<b>Nothing to lose</b>These chargers never used the network', 'ok', 3500);
-    } else {
-      showBanner(app, `<b>Network back at ${at}</b>The utility server is scheduling chargers again`, 'ok', 3000);
+    for (const s of sides) {
+      if (s.mode === 'central') {
+        if (!up) {
+          showBanner(s, `<b>Network down at ${time}</b>${why} Without instructions, every charger falls back to charging flat out.`, 'dark', 5500);
+        } else {
+          showBanner(s, `<b>Network back at ${time}</b>The utility server is scheduling chargers again`, 'ok', 3000);
+        }
+      } else if (s.mode === 'local' && !up) {
+        showBanner(s, '<b>Nothing to lose</b>These chargers never used the network', 'ok', 3500);
+      }
     }
   };
   cutBtn.addEventListener('click', () => setLink(!linkUp));
@@ -408,6 +546,8 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     else if (e.key === 'c' || e.key === 'C') togglePop();
     else if (e.key === 'r' || e.key === 'R') reset();
     else if (e.key === 'x' || e.key === 'X') setLink(!linkUp);
+    else if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N') nextBtn.click();
+    else if (e.key === 'ArrowLeft') backBtn.click();
     else if (e.key === 'Escape') {
       select(null);
       setOpen(sheet, chartBtn, false);
@@ -451,7 +591,32 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     }
   };
   const observer = new ResizeObserver(layout);
-  for (const s of sides) observer.observe(s.stage);
+
+  function goTo(id: SceneId): void {
+    scene = scenes.find((x) => x.id === id) ?? scenes[0]!;
+    select(null);
+    observer.disconnect();
+    maps.replaceChildren();
+    sides = scene.sides.map(makeSide);
+    if (sides.length > 1) maps.append(el('div', 'vs glass', 'Same night'));
+    maps.classList.toggle('single', sides.length === 1);
+    for (const s of sides) observer.observe(s.stage);
+    observer.observe(maps);
+    START_TICK = scene.start;
+    cutTick = scene.id === 'free' ? (autoCut ? at(21) : null) : scene.cutAt;
+    cutBtn.style.display = sides.some((s) => s.mode === 'central') ? '' : 'none';
+    buildLegend();
+    capKicker.textContent = scene.kicker;
+    capTitle.textContent = scene.title;
+    capBody.textContent = scene.body;
+    reasons.style.display = scene.cutAt !== null && scene.id !== 'free' ? '' : 'none';
+    dotButtons.forEach((b, i) => b.classList.toggle('on', scenes[i]!.id === scene.id));
+    backBtn.style.visibility = sceneIndex() === 0 ? 'hidden' : '';
+    nextBtn.style.visibility = scene.id === 'free' ? 'hidden' : '';
+    nextBtn.textContent = scene.id === 'ours' ? 'Free play' : 'Next';
+    reset();
+    layout();
+  }
 
   const chip = (k: string, v: string, small = ''): string =>
     `<div class="chip glass"><div class="k">${k}</div><div class="v">${v}${small ? `<small>${small}</small>` : ''}</div></div>`;
@@ -540,7 +705,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
         recordSockets();
       }
     }
-    if (autoCut && !autoCutDone && sides[0]!.district.tick >= AUTO_CUT_TICK) {
+    if (cutTick !== null && !autoCutDone && sides[0]!.district.tick >= cutTick) {
       autoCutDone = true;
       setLink(false, 'scheduled');
     }
@@ -575,8 +740,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   };
 
   setPlaying(true);
-  warmUp();
-  layout();
+  goTo(/[?&](at|scene=free)/.test(search) ? 'free' : 'today');
   raf = requestAnimationFrame(frame);
 
   return {
