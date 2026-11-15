@@ -32,13 +32,14 @@ export const SEGMENTS: readonly Segment[] = [
   {
     id: 'title',
     say: 'Rickshaws. Chargers that read the wire.',
-    hold: 1.2,
+    hold: 0.8,
     card: `<div class="eyebrow">DurHack 2026 · Neptune North</div><h1>Chargers that read the wire</h1><h2>Keeping Dhaka's battery rickshaws charging, even when the network goes down</h2>`,
   },
   {
     id: 'cold-open',
-    say: 'Every night in Dhaka, battery rickshaws come home and plug in, at almost the same time.',
-    hold: 0.6,
+    say:
+      "Every night in Dhaka, millions of battery rickshaws plug in at almost the same time.",
+    hold: 1.4,
     card: null,
     scene: 'today',
     endTick: 615,
@@ -46,8 +47,8 @@ export const SEGMENTS: readonly Segment[] = [
   {
     id: 'problem',
     say:
-      "Bangladesh's road transport authority estimates more than six million of them. The Home Minister told Parliament they use about five percent of the country's electricity. And the power board says night-time demand no longer falls after midnight.",
-    hold: 0.8,
+      "Bangladesh has more than six million of them, using about five percent of the country's electricity, and night-time demand no longer falls after midnight.",
+    hold: 1.5,
     card:
       `<div class="eyebrow">The problem</div><h1>Millions of chargers, one evening peak</h1><div class="stats">` +
       stat('6 million+', 'battery rickshaws in Bangladesh', 'BRTA estimate, reported by UNB, August 2025') +
@@ -58,8 +59,8 @@ export const SEGMENTS: readonly Segment[] = [
   {
     id: 'today',
     say:
-      'This is a real block of Dhanmondi, built from OpenStreetMap: two neighbourhood transformers, ten rickshaw garages and two hundred rickshaws. With ordinary chargers, every rickshaw draws full power the moment it plugs in. In our model, the east transformer overheats, and at half past eleven, it fails. Three hundred buildings go dark.',
-    hold: 1.5,
+      "On a real block of Dhanmondi, ordinary chargers all draw full power at once. In our model, the transformer overheats, and fails.",
+    hold: 3.5,
     card: null,
     scene: 'today',
     endTick: 712,
@@ -67,64 +68,66 @@ export const SEGMENTS: readonly Segment[] = [
   {
     id: 'usual',
     say:
-      'The usual fix is to connect every charger to a utility server over the mobile network, and schedule them centrally. And it works. The load stays under the limit.',
-    hold: 0.4,
+      "The usual fix: a utility server schedules every charger over the mobile network. And it works.",
+    hold: 1.0,
     scene: 'usual',
     endTick: 569,
   },
   {
     id: 'outage',
     say:
-      'Until the network drops. In July 2024, mobile internet across Bangladesh was shut down for ten days. A charger without instructions can strand its driver, or charge flat out. So the overload comes straight back, and the transformer fails again.',
-    hold: 1.5,
+      "Until the network drops, as it did across Bangladesh for ten days in July 2024. Without instructions, chargers charge flat out, and the transformer fails again.",
+    hold: 3.0,
     endTick: 720,
   },
   {
     id: 'idea',
     say:
-      "So we asked: what if the chargers didn't need the network at all? Ours share just one signal: the voltage on the wire they are already plugged into. When the neighbourhood draws too much, the voltage sags. Each charger backs off for a random time, and a nearly empty battery backs off less. No server. No messages. No clock.",
-    hold: 0.5,
+      "Our chargers don't need the network. Each one senses the voltage at its own socket. When the neighbourhood draws too much, the voltage sags, and each charger backs off for a random time. No server. No messages.",
+    hold: 1.5,
     scene: 'ours',
     endTick: 640,
   },
   {
     id: 'socket',
     say:
-      'Click any bay to see what one charger feels: the voltage at its socket, and the line where it backs off. On the left, a charger with no instructions just charges flat out.',
-    hold: 0.6,
+      "Click any bay to see what one charger feels: its voltage, and the line where it backs off.",
+    hold: 2.0,
     endTick: 668,
     at: [{ t: 0, js: 'rickshawsFilm.select(1, 87)' }],
   },
   {
     id: 'outcome',
-    say: 'Same night. Same outage. The app-controlled side fails. Ours has nothing to lose, and the lights stay on.',
-    hold: 2,
+    say:
+      "Same outage. Theirs fails. Ours has nothing to lose.",
+    hold: 3.5,
     endTick: 720,
     at: [{ t: 0, js: 'rickshawsFilm.unselect()' }],
   },
   {
     id: 'results',
     say:
-      'Across ten simulated nights, ordinary chargers burst a transformer every night. App-controlled chargers burst one every night the network went down. Ours never did, and still sent ninety-six percent of rickshaws out fully charged.',
-    hold: 1,
+      "Across sixty simulated nights, ordinary chargers always burst a transformer, and app-controlled ones did whenever the network failed. Ours never did, and still sent ninety-five percent of rickshaws out charged on the worst night.",
+    hold: 1.5,
     card:
-      `<div class="eyebrow">The results</div><h1>Ten nights in our model of Dhanmondi</h1><div class="stats">` +
-      stat('10 / 10', 'nights a transformer burst with ordinary chargers', 'Peak load up to 134% of the rating') +
-      stat('10 / 10', 'nights it burst with app-controlled chargers once the network went down', 'Up to 99.9% charged while the network held') +
-      stat('0 / 10', 'nights it burst with our chargers', '96% of rickshaws left fully charged') +
-      `</div><div class="note">Simulation, seeds 1 to 10. Transformer heating and the burst point are illustrative model values.</div>`,
+      `<div class="eyebrow">The results</div><h1>Sixty simulated nights in Dhanmondi</h1><div class="stats">` +
+      stat('60 / 60', 'runs with a transformer burst, ordinary chargers', 'Across all six scenarios') +
+      stat('10 / 10', 'runs with a burst for app-controlled chargers when the network failed', 'Fine while the network held') +
+      stat('0 / 60', 'runs with a burst for our chargers', '95% fully charged even on the worst night') +
+      `</div><div class="note">Our simulation, 10 runs per scenario. Transformer heating and the burst point are illustrative model values.</div>`,
   },
   {
     id: 'hardware',
     say:
-      "In practice, it's a small plug-in box between the wall and the charger a garage already owns: a voltage sensor, a relay and a microcontroller. No radio and no SIM. It builds on known research into voltage-responsive charging, applied to a fleet nobody can network. Power cuts are still our weakest case, and that's what we're improving next.",
+      "In practice, it's a small box between the wall and the charger: a voltage sensor, a relay and a microcontroller. No radio. No SIM.",
     hold: 0.8,
     card: `<div class="eyebrow">What we would build</div><h1>A small box between the wall and the charger</h1><h2>Voltage sensor · relay · microcontroller<br>No radio · no SIM · no server</h2><div class="note">Concept design. Not yet built or tested.</div>`,
   },
   {
     id: 'close',
-    say: 'Rickshaws. Nothing to connect, so nothing to cut.',
-    hold: 2.5,
+    say:
+      "Rickshaws. Nothing to connect, so nothing to cut.",
+    hold: 3.0,
     card: `<div class="eyebrow">RICKSHAWS</div><h1>Nothing to connect,<br>so nothing to cut</h1><h2>Alex · Shafian · Aryan · Aaron<br>DurHack 2026 · Neptune North</h2><div class="note">Map data © OpenStreetMap contributors, ODbL</div>`,
   },
 ];

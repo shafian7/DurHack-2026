@@ -18,7 +18,7 @@ import { SEGMENTS, type Segment } from './script';
 const FPS = 30;
 const LEAD = 0.25; // seconds of silence before each voiceover
 const VOICE = 'Daniel';
-const RATE = '172';
+const RATE = '165';
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 9333;
 
