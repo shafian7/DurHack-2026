@@ -28,6 +28,8 @@ export const colors = {
   waiting: '#a7b0bb',
 
   naive: '#e2553f',
+  central: '#7c5cd6',
+  signal: '#7c5cd6',
   local: '#2f7fd8',
 } as const;
 

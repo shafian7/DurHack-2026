@@ -34,6 +34,8 @@ One screen, light and calm, readable from three metres:
 - **The burst.** On the ordinary side, a transformer that stays overloaded heats up until it fails. It flashes, smoke rises from it, and everything it feeds goes dark for the rest of the night: buildings, street segments and garages. The banner reads "T2 burst at 23:12, 1,240 homes and 100 rickshaws without power". The smart side, on the same night, stays lit.
 - **The chart** under the maps shows the load on each transformer through the night for both sides, with the limit as one line. A burst shows as the curve dropping to zero.
 
+**Update, 15 November:** the left map now shows **connected chargers run by a central server**, rather than ordinary chargers. The judge sees the data link cut at 21:00, the chargers fall back to charging flat out, and a transformer burst, while the smart chargers have nothing to cut. This puts the brief's "communications interrupted" on screen. See `docs/UI.md`.
+
 ## 2. What stays the same
 
 - **The claim and the rule.** The smart chargers are lane B's `localPolicy`, unchanged. A charger senses only its own socket voltage and battery. There is no server, no clock and no messages (AGENTS E1 to E5).

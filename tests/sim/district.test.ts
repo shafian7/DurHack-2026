@@ -4,6 +4,7 @@ import { createDistrict, zoneConfig } from '../../src/sim/district';
 import { dhanmondiDistrict } from '../../src/map';
 import { naivePolicy } from '../../src/policies/naive';
 import { localPolicy } from '../../src/policies/local';
+import { createScheduler } from '../../src/policies/scheduler';
 
 describe('district', () => {
   it('builds one zone per transformer with 100 rickshaws each, on different seeds', () => {
@@ -33,5 +34,20 @@ describe('district', () => {
     }
     expect(naive.zones.some((z) => z.metrics().bursts > 0)).toBe(true);
     expect(local.zones.every((z) => z.metrics().bursts === 0)).toBe(true);
+  });
+
+  it('the connected chargers hold until the link is cut at 21:00, then a transformer bursts', () => {
+    const run = (cut: boolean) => {
+      const d = createDistrict(dhanmondiDistrict(1), 'central', () => ({ scheduler: createScheduler() }));
+      for (let t = 0; t < 1440; t++) {
+        if (cut && t === 9 * 60) d.apply({ kind: 'killScheduler' });
+        d.step();
+      }
+      return d.zones.map((z) => z.metrics());
+    };
+    expect(run(false).every((m) => m.bursts === 0)).toBe(true);
+    const cut = run(true);
+    expect(cut.some((m) => m.bursts > 0)).toBe(true);
+    expect(Math.min(...cut.filter((m) => m.burstTick !== null).map((m) => m.burstTick!))).toBeGreaterThan(9 * 60);
   });
 });

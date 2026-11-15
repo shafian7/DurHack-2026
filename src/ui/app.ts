@@ -21,7 +21,7 @@ export interface UiDeps {
   readonly burstC: number;
 }
 
-type SideMode = 'naive' | 'local';
+type SideMode = 'central' | 'local';
 
 interface Side {
   readonly mode: SideMode;
@@ -42,6 +42,8 @@ interface Side {
 const SPEEDS = [2, 10, 30, 60] as const;
 /** Each run starts at 17:00 on day one, just before rickshaws start coming home. */
 const START_TICK = 5 * 60;
+/** The automatic cut, at 21:00 on night one, while rickshaws are still arriving. */
+const AUTO_CUT_TICK = 9 * 60;
 
 const ICONS = {
   play: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>',
@@ -50,6 +52,10 @@ const ICONS = {
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13.5h12"/><path d="M3 10.5l3-3.5 3 2 4-5"/></svg>',
   sliders:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 4.5h11M2.5 11.5h11"/><circle cx="6" cy="4.5" r="1.8" fill="#fff"/><circle cx="10.5" cy="11.5" r="1.8" fill="#fff"/></svg>',
+  cut:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5l-2 2a2.1 2.1 0 0 1-3-3l2-2"/><path d="M9.5 6.5l2-2a2.1 2.1 0 0 1 3 3l-2 2"/><path d="M6 3V1.5M3 6H1.5M10 13v1.5M13 10h1.5"/></svg>',
+  link:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5l3-3"/><path d="M5 8l-1.5 1.5a2.1 2.1 0 0 0 3 3L8 11"/><path d="M11 8l1.5-1.5a2.1 2.1 0 0 0-3-3L8 5"/></svg>',
   restart:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 8a5.2 5.2 0 1 0 1.6-3.8"/><path d="M2.5 2.5v3h3"/></svg>',
 };
@@ -79,6 +85,12 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   let playing = true;
   let heatwave = false;
   let carry = 0;
+  /** Whether the central server's data link is up. */
+  let linkUp = true;
+  /** Cut the link automatically at 21:00, so the story plays while the presenter talks. */
+  let autoCut = true;
+  /** The automatic cut happens at most once per run, so a restored link stays up. */
+  let autoCutDone = false;
 
   const app = el('div', 'app');
   root.replaceChildren(app);
@@ -114,10 +126,13 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     b.title = title;
     return b;
   };
+  const cutBtn = iconButton(ICONS.cut, 'Cut the connection', 'Cut the data link to the central server (X)');
+  cutBtn.classList.add('cut');
+  cutBtn.dataset.cmd = 'killScheduler';
   const restartBtn = iconButton(ICONS.restart, 'Restart', 'Restart tonight from 17:00 (R)');
   const chartBtn = iconButton(ICONS.chart, 'Load graph', 'Show the load graph (G)');
   const controlsBtn = iconButton(ICONS.sliders, 'Controls', 'Change the night (C)');
-  tools.append(play, seg, restartBtn, chartBtn, controlsBtn);
+  tools.append(play, seg, cutBtn, restartBtn, chartBtn, controlsBtn);
   top.append(brand, clock, tools);
 
   // -------------------------------------------------------------- maps
@@ -151,11 +166,16 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     };
   };
   const sides: Side[] = [
-    makeSide('naive', 'Ordinary chargers', 'Every charger draws full power the moment a rickshaw plugs in.', colors.naive),
+    makeSide(
+      'central',
+      'Connected chargers',
+      'A central server switches every charger over a data link. If the link drops, chargers charge flat out.',
+      colors.central,
+    ),
     makeSide(
       'local',
       'Smart chargers',
-      'Each charger senses only its own socket voltage and backs off when it sags. No server, no messages.',
+      'No server and no link. Each charger senses only its own socket voltage and backs off when it sags.',
       colors.local,
     ),
   ];
@@ -167,8 +187,8 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const sheetHead = el('header');
   const legend = el('span', 'legend');
   legend.innerHTML = `
-    <span><i style="border-color:${colors.naive}"></i>Ordinary · T1</span>
-    <span><i class="d" style="border-color:${colors.naive}"></i>Ordinary · T2</span>
+    <span><i style="border-color:${colors.central}"></i>Connected · T1</span>
+    <span><i class="d" style="border-color:${colors.central}"></i>Connected · T2</span>
     <span><i style="border-color:${colors.local}"></i>Smart · T1</span>
     <span><i class="d" style="border-color:${colors.local}"></i>Smart · T2</span>`;
   const sheetClose = el('button', 'close', '✕');
@@ -206,6 +226,11 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   action('Stubborn chargers', '20% ignore the rule', 'stubbornChargers', () =>
     send({ kind: 'stubbornChargers', fraction: 0.2 }),
   );
+  const autoBtn = action('Auto-cut at 21:00', 'Link drops by itself', 'autoCut', (b) => {
+    autoCut = !autoCut;
+    b.classList.toggle('on', autoCut);
+  });
+  autoBtn.classList.add('on');
   action('New night', 'Different arrivals', 'reset', () => {
     seed += 1;
     reset();
@@ -217,11 +242,13 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     <span><i class="sw" style="background:${colors.full}"></i>Battery full</span>
     <span><i class="sw" style="background:${colors.rickshaw};border-radius:50%"></i>Rickshaw driving</span>
     <span><i class="sw" style="background:${colors.ok};border-radius:50%"></i>Transformer OK</span>
-    <span><i class="sw" style="background:${colors.hot};border-radius:50%"></i>Overloaded</span>`;
+    <span><i class="sw" style="background:${colors.hot};border-radius:50%"></i>Overloaded</span>
+    <span><i class="sw" style="background:${colors.central}"></i>Control centre</span>
+    <span><i class="sw" style="background:${colors.signal};border-radius:50%;width:6px;height:6px"></i>Data link</span>`;
   const note = el(
     'div',
     'note',
-    `Roads: ${deps.map.attribution}. Buildings are drawn as simple boxes. Transformer heating and the burst point are illustrative model values, not measurements. Keys: space play/pause · G graph · C controls · R restart.`,
+    `Roads: ${deps.map.attribution}. Buildings are drawn as simple boxes. Transformer heating and the burst point are illustrative model values, not measurements. Keys: space play/pause · X cut or restore the link · G graph · C controls · R restart.`,
   );
   pop.append(popHead, actions, key, note);
 
@@ -246,6 +273,30 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     play.innerHTML = playing ? ICONS.pause : ICONS.play;
   };
   play.addEventListener('click', () => setPlaying(!playing));
+
+  const showBanner = (s: Side, html: string, tone: 'bad' | 'ok' | 'dark', ms: number): void => {
+    s.banner.innerHTML = html;
+    s.banner.className = `banner show ${tone}`;
+    s.bannerUntil = performance.now() + ms;
+  };
+  const setLink = (up: boolean): void => {
+    if (up === linkUp) return;
+    linkUp = up;
+    const command: Command = up ? { kind: 'reviveScheduler' } : { kind: 'killScheduler' };
+    send(command);
+    cutBtn.classList.toggle('done', !up);
+    cutBtn.innerHTML = up ? `${ICONS.cut}<span>Cut the connection</span>` : `${ICONS.link}<span>Restore the connection</span>`;
+    cutBtn.dataset.cmd = up ? 'killScheduler' : 'reviveScheduler';
+    const at = clockText(sides[0]!.district.tick).time;
+    const [connected, smart] = sides as [Side, Side];
+    if (!up) {
+      showBanner(connected, `<b>Connection lost at ${at}</b>No instructions reach the garages, so every charger falls back to charging flat out`, 'dark', 4500);
+      showBanner(smart, '<b>Nothing to cut</b>These chargers never had a server or a link', 'ok', 3500);
+    } else {
+      showBanner(connected, `<b>Connection restored at ${at}</b>The server is scheduling chargers again`, 'ok', 3000);
+    }
+  };
+  cutBtn.addEventListener('click', () => setLink(!linkUp));
   restartBtn.addEventListener('click', () => reset());
 
   const onKey = (e: KeyboardEvent): void => {
@@ -256,6 +307,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     } else if (e.key === 'g' || e.key === 'G') toggleSheet();
     else if (e.key === 'c' || e.key === 'C') togglePop();
     else if (e.key === 'r' || e.key === 'R') reset();
+    else if (e.key === 'x' || e.key === 'X') setLink(!linkUp);
     else if (e.key === 'Escape') {
       setOpen(sheet, chartBtn, false);
       setOpen(pop, controlsBtn, false);
@@ -273,6 +325,11 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   function reset(): void {
     heatwave = false;
     heatBtn.classList.remove('on');
+    linkUp = true;
+    autoCutDone = false;
+    cutBtn.classList.remove('done');
+    cutBtn.innerHTML = `${ICONS.cut}<span>Cut the connection</span>`;
+    cutBtn.dataset.cmd = 'killScheduler';
     for (const s of sides) {
       s.district = deps.makeDistrict(s.mode, seed);
       s.view.reset();
@@ -315,6 +372,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     const burst = zones.findIndex((z) => z.transformer.burst);
     const out = zones.some((z) => z.transformer.tripped);
     const overloaded = zones.some((z) => z.transformer.loadKw > z.transformer.ratingKw);
+    const lost = s.mode === 'central' && zones.some((z) => !z.schedulerAlive);
     let text: string;
     let cls = '';
     if (burst >= 0) {
@@ -323,11 +381,14 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     } else if (out) {
       text = 'Power cut';
       cls = 'bad';
+    } else if (lost) {
+      text = overloaded ? 'No connection · transformer overloaded' : 'No connection · charging flat out';
+      cls = 'bad';
     } else if (overloaded) {
       text = 'Transformer overloaded';
       cls = 'warn';
     } else {
-      text = 'All lights on';
+      text = s.mode === 'central' ? 'Connected · server in control' : 'All lights on · no link needed';
     }
     s.state.className = `state glass ${cls}`;
     s.state.innerHTML = `<i></i>${text}`;
@@ -342,9 +403,12 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
         const at = m.burstTick !== null ? clockText(m.burstTick).time : '';
         const t = deps.map.transformers[i]!;
         const rickshaws = z.chargers.filter((c) => c.state !== 'away' && c.state !== 'removed').length;
-        s.banner.innerHTML = `<b>${t.label} burst at ${at}</b>${t.buildings.toLocaleString()} buildings and ${rickshaws} rickshaws lose power for the rest of the night`;
-        s.banner.classList.add('show');
-        s.bannerUntil = now + 5000;
+        showBanner(
+          s,
+          `<b>${t.label} burst at ${at}</b>${t.buildings.toLocaleString()} buildings and ${rickshaws} rickshaws lose power for the rest of the night`,
+          'bad',
+          5000,
+        );
       }
     });
     if (s.bannerUntil && now > s.bannerUntil) {
@@ -366,6 +430,10 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
       steps = Math.min(steps, 120);
       for (let i = 0; i < steps; i++) for (const s of sides) s.district.step();
     }
+    if (autoCut && !autoCutDone && sides[0]!.district.tick >= AUTO_CUT_TICK) {
+      autoCutDone = true;
+      setLink(false);
+    }
     const tick = sides[0]!.district.tick;
     const time = tick + (playing ? carry : 0);
     const c = clockText(tick);
@@ -377,7 +445,8 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     const series: Series[] = [];
     for (const s of sides) {
       const zones = s.district.zones.map((z) => z.snapshot());
-      s.view.draw({ zones, time, now, burstC: deps.burstC });
+      const link = s.mode === 'central' ? (zones.every((z) => z.schedulerAlive) ? 'up' : 'cut') : 'none';
+      s.view.draw({ zones, time, now, burstC: deps.burstC, link });
       announce(s, zones, now);
       if (refresh) updateOverlays(s, zones);
       if (chartOpen) {

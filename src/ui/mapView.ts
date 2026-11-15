@@ -17,7 +17,15 @@ export interface Frame {
   /** Wall-clock milliseconds, for effects only. */
   readonly now: number;
   readonly burstC: number;
+  /**
+   * The data link to the central server, on the map that has one: 'up' while
+   * connected, 'cut' once it is lost, 'none' on a map with no server at all.
+   */
+  readonly link: 'up' | 'cut' | 'none';
 }
+
+/** How long the cut animation plays before the lines settle as broken, in ms. */
+const CUT_FLASH_MS = 1600;
 
 const GRID_COLS = 5;
 const CELL = 6;
@@ -38,6 +46,9 @@ export class MapView {
   private readonly awaySince = new Map<number, number>();
   private readonly wasAway = new Map<number, boolean>();
   private readonly burstSeenAt = new Map<number, number>();
+  private linkCutAt: number | null = null;
+  /** The control centre's position: the road node nearest the middle of the garages. */
+  private readonly hub: Point;
 
   constructor(
     private readonly map: MapData,
@@ -48,6 +59,11 @@ export class MapView {
     this.ctx = this.canvas.getContext('2d')!;
     this.buildingPaths = map.transformers.map(() => new Path2D());
     for (const b of map.buildings) addRing(this.buildingPaths[b.transformer]!, b.points);
+    const gx = map.garages.reduce((a, g) => a + g.at[0], 0) / map.garages.length;
+    const gy = map.garages.reduce((a, g) => a + g.at[1], 0) / map.garages.length;
+    this.hub = map.graph.nodes.reduce((best, p) =>
+      Math.hypot(p[0] - gx, p[1] - gy) < Math.hypot(best[0] - gx, best[1] - gy) ? p : best,
+    );
     this.wires = map.transformers.map((t, ti) =>
       map.garages.filter((g) => g.transformer === ti).map((g) => shortestPath(map, t.node, g.node)),
     );
@@ -58,6 +74,7 @@ export class MapView {
     this.awaySince.clear();
     this.wasAway.clear();
     this.burstSeenAt.clear();
+    this.linkCutAt = null;
   }
 
   resize(width: number, height: number): void {
@@ -186,7 +203,138 @@ export class MapView {
     this.drawRickshawsOnRoads(frame);
     ctx.restore();
     this.drawGarages(frame);
+    this.drawLink(frame);
     this.drawTransformers(frame);
+  }
+
+  /**
+   * The central server's data link: a control centre with a signal line to
+   * every garage. Pulses flow while it is up; when it is cut the lines flash
+   * red, snap, and stay grey and broken.
+   */
+  private drawLink(frame: Frame): void {
+    if (frame.link === 'none') return;
+    const ctx = this.ctx;
+    if (frame.link === 'cut' && this.linkCutAt === null) this.linkCutAt = frame.now;
+    if (frame.link === 'up') this.linkCutAt = null;
+    const since = this.linkCutAt === null ? Infinity : frame.now - this.linkCutAt;
+    const [hx, hy] = this.toScreen(this.hub);
+
+    for (const g of this.map.garages) {
+      const box = this.garageBox(g.at);
+      const tx = box.x + box.w / 2;
+      const ty = box.y + box.h / 2;
+      const len = Math.hypot(tx - hx, ty - hy);
+      if (len < 1) continue;
+      const ux = (tx - hx) / len;
+      const uy = (ty - hy) / len;
+      ctx.save();
+      ctx.lineCap = 'round';
+      if (frame.link === 'up') {
+        ctx.strokeStyle = 'rgba(124,92,214,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([2, 5]);
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        // Data pulses travelling out to the garage.
+        ctx.setLineDash([]);
+        ctx.fillStyle = colors.signal;
+        for (let k = 0; k < 3; k++) {
+          const f = ((frame.now / 1400 + k / 3 + g.at[0] * 0.001) % 1 + 1) % 1;
+          ctx.globalAlpha = 0.9 * Math.sin(Math.PI * f);
+          ctx.beginPath();
+          ctx.arc(hx + ux * len * f, hy + uy * len * f, 2.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      } else {
+        // Broken: two stubs with a gap in the middle that opens as it snaps.
+        const flash = since < CUT_FLASH_MS ? 1 - since / CUT_FLASH_MS : 0;
+        const gap = 8 + 10 * Math.min(1, since / 400);
+        const mid = len / 2;
+        ctx.strokeStyle = flash > 0 ? `rgba(226,85,63,${0.4 + 0.6 * flash})` : 'rgba(120,126,138,0.45)';
+        ctx.lineWidth = 1.5 + 1.5 * flash;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(hx + ux * (mid - gap / 2), hy + uy * (mid - gap / 2));
+        ctx.moveTo(hx + ux * (mid + gap / 2), hy + uy * (mid + gap / 2));
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        // A small break mark where the line snapped.
+        const bx = hx + ux * mid;
+        const by = hy + uy * mid;
+        ctx.setLineDash([]);
+        ctx.strokeStyle = flash > 0 ? colors.hot : 'rgba(180,35,24,0.6)';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(bx - 3.5, by - 3.5);
+        ctx.lineTo(bx + 3.5, by + 3.5);
+        ctx.moveTo(bx + 3.5, by - 3.5);
+        ctx.lineTo(bx - 3.5, by + 3.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // The control centre: a rounded tile with a broadcast mark.
+    const up = frame.link === 'up';
+    if (up) {
+      const pulse = (frame.now / 1600) % 1;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 14 + 16 * pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(124,92,214,${0.45 * (1 - pulse)})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.save();
+    ctx.shadowColor = 'rgba(20,30,45,0.25)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    roundRect(ctx, hx - 15, hy - 15, 30, 30, 8);
+    ctx.fillStyle = up ? colors.central : '#8a9099';
+    ctx.fill();
+    ctx.restore();
+    // Antenna and waves.
+    ctx.strokeStyle = '#ffffff';
+    ctx.fillStyle = '#ffffff';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(hx, hy + 8);
+    ctx.lineTo(hx, hy - 1);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(hx, hy - 2, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    for (const r of [5.5, 9]) {
+      ctx.globalAlpha = up ? 1 : 0.35;
+      ctx.beginPath();
+      ctx.arc(hx, hy - 2, r, -Math.PI * 0.8, -Math.PI * 0.2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    if (!up) {
+      ctx.strokeStyle = colors.hot;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(hx - 9, hy + 9);
+      ctx.lineTo(hx + 9, hy - 9);
+      ctx.stroke();
+    }
+    // Label.
+    const label = up ? 'Control centre' : 'No connection';
+    ctx.font = `600 10.5px ${font}`;
+    const w = ctx.measureText(label).width + 14;
+    roundRect(ctx, hx - w / 2, hy - 36, w, 17, 8.5);
+    ctx.fillStyle = up ? 'rgba(255,255,255,0.92)' : colors.burst;
+    ctx.fill();
+    ctx.fillStyle = up ? colors.central : '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, hx, hy - 27.3);
   }
 
   private drawWires(frame: Frame): void {

@@ -54,6 +54,11 @@ button { font: inherit; color: inherit; }
 .banner { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.96); background: ${colors.burst}; color: #fff; padding: 14px 20px; border-radius: 16px; font-size: 14px; font-weight: 600; text-align: center; box-shadow: 0 16px 40px rgba(180,35,24,.35); opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none; max-width: 80%; line-height: 1.4; }
 .banner b { display: block; font-size: 20px; margin-bottom: 2px; }
 .banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.banner.ok { background: ${colors.ok}; box-shadow: 0 16px 40px rgba(47,158,110,.3); }
+.banner.dark { background: #2b2f38; box-shadow: 0 16px 40px rgba(20,30,45,.35); }
+.icon-btn.cut { border-color: #f0b6ab; color: ${colors.burst}; background: #fff6f4; }
+.icon-btn.cut:hover { border-color: ${colors.hot}; }
+.icon-btn.cut.done { background: ${colors.central}; border-color: ${colors.central}; color: #fff; }
 .vs { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; color: ${colors.muted}; white-space: nowrap; }
 
 /* ---------------------------------------------------------------- sheets */

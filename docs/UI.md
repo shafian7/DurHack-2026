@@ -2,6 +2,16 @@
 
 **Status:** built on the `shafian` branch, Sunday 15 November 2026. It replaces the first interface (B40 to B43) and the street-diagram proposal. The full plan is in [plan.md](../plan.md) §1 and §3.6.
 
+## The story: a connection that breaks (15 November)
+
+The left map is **Connected chargers**: the `central` mode, where a central server switches every charger over a data link. A purple **control centre** sits on the map, with dashed signal lines to all ten garages and data pulses flowing out. While the link is up, the server keeps both transformers under their limit. **Cut the connection** (the red button in the top bar, or X) cuts the link. The lines flash red and snap, the hub goes grey ("No connection"), and every charger falls back to charging flat out (BUILD D06). The load climbs, and the east transformer bursts about two hours later. **Restore the connection** brings the server back, but a burst transformer stays dark. With **Auto-cut at 21:00** on (the default, toggled in Controls), the link drops by itself at 21:00 once per run, so the story plays while the presenter talks.
+
+The right map is **Smart chargers**: there is no hub and no lines. The same cut shows "Nothing to cut", and nothing changes.
+
+Seeds 1 to 10 (`docs/RESULTS.md`): with the link up all night, central never bursts. Cut at 21:00, it bursts on 10 of 10 nights, between 23:09 and 23:45.
+
+The two-map ordinary-against-smart version is tagged `dhanmondi-v2`.
+
 ## Layout (demo version, 15 November)
 
 The two maps fill the screen. The top bar holds the name, a large clock, play/pause, speed (2×, 10×, 30×, 60× simulated minutes per second), Restart, **Load graph** and **Controls**. On each map, small floating labels show: the title and one-line explanation (top left), a single status (top right: "All lights on", "Transformer overloaded", "Power cut", or "T2 burst · N buildings dark" in red), and three figures (bottom left: charging now, hottest transformer, left fully charged). A burst also gives a centred red announcement and a red outline on that map. A "Same night" badge sits between the maps. **Load graph** opens the chart as a row below the maps, which shrink to make room, so nothing is covered. **Controls** opens a popover with the actions, the colour key and the data note. Keys: space play/pause, 1 to 4 speed, G graph, C controls, R restart, Esc close.

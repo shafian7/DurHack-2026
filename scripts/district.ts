@@ -12,8 +12,13 @@ import { staggerPolicy } from '../src/policies/stagger';
 import { localPolicy } from '../src/policies/local';
 import { createScheduler } from '../src/policies/scheduler';
 
+/** The demo's automatic cut of the central server's link: 21:00 on night one. */
+export const DEMO_CUT_TICK = 9 * 60;
+
 export interface DistrictRun {
   readonly mode: FleetMode;
+  /** Tick the central server's link was cut, or null. */
+  readonly cutTick: number | null;
   readonly seed: number;
   readonly bursts: number;
   readonly firstBurstTick: number | null;
@@ -25,13 +30,16 @@ export interface DistrictRun {
   readonly readyShareFar: number | null;
 }
 
-export function runDistrict(mode: FleetMode, seed: number, ticks = 3 * TICKS_PER_DAY): DistrictRun {
+export function runDistrict(mode: FleetMode, seed: number, ticks = 3 * TICKS_PER_DAY, cutTick: number | null = null): DistrictRun {
   const d = createDistrict(dhanmondiDistrict(seed), mode, () =>
     mode === 'central'
       ? { scheduler: createScheduler() }
       : { policy: mode === 'naive' ? naivePolicy : mode === 'stagger' ? staggerPolicy : localPolicy },
   );
-  for (let t = 0; t < ticks; t++) d.step();
+  for (let t = 0; t < ticks; t++) {
+    if (t === cutTick) d.apply({ kind: 'killScheduler' });
+    d.step();
+  }
   const ms = d.zones.map((z) => z.metrics());
   const departures = ms.reduce((n, m) => n + m.departures, 0);
   const ready = ms.reduce((n, m) => n + m.readyDepartures, 0);
@@ -39,6 +47,7 @@ export function runDistrict(mode: FleetMode, seed: number, ticks = 3 * TICKS_PER
   const burstTicks = ms.map((m) => m.burstTick).filter((t): t is number => t !== null);
   return {
     mode,
+    cutTick,
     seed,
     bursts: ms.reduce((n, m) => n + m.bursts, 0),
     firstBurstTick: burstTicks.length ? Math.min(...burstTicks) : null,
@@ -58,8 +67,14 @@ const clock = (tick: number): string => {
 };
 
 export function districtSection(seeds: readonly number[]): string {
-  const modes: FleetMode[] = ['naive', 'stagger', 'local', 'central'];
-  const runs = modes.map((mode) => seeds.map((seed) => runDistrict(mode, seed)));
+  const rows: { label: string; mode: FleetMode; cut: number | null }[] = [
+    { label: 'naive', mode: 'naive', cut: null },
+    { label: 'stagger', mode: 'stagger', cut: null },
+    { label: 'local (smart chargers)', mode: 'local', cut: null },
+    { label: 'central, link up all night', mode: 'central', cut: null },
+    { label: 'central, link cut at 21:00 (the demo)', mode: 'central', cut: DEMO_CUT_TICK },
+  ];
+  const runs = rows.map((row) => seeds.map((seed) => runDistrict(row.mode, seed, 3 * TICKS_PER_DAY, row.cut)));
   const lines = [
     '## Dhanmondi district: two transformers, three days from tick 0 (plan.md §3.7)',
     '',
@@ -71,7 +86,7 @@ export function districtSection(seeds: readonly number[]): string {
   runs.forEach((rs, i) => {
     const firsts = rs.map((r) => r.firstBurstTick).filter((t): t is number => t !== null).sort((a, b) => a - b);
     lines.push(
-      `| ${modes[i]} | ${rs.filter((r) => r.bursts > 0).length} of ${rs.length} | ${mean(rs.map((r) => r.bursts)).toFixed(1)} | ${firsts.length ? clock(firsts[Math.floor(firsts.length / 2)]!) : 'none'} | ${pct(mean(rs.map((r) => r.peakShare[0]!)))} / ${pct(mean(rs.map((r) => r.peakShare[1]!)))} | ${Math.max(...rs.map((r) => r.maxHotSpotC)).toFixed(0)} | ${Math.round(mean(rs.map((r) => r.buildingHoursDark))).toLocaleString('en-GB')} | ${pct(mean(rs.map((r) => r.readyShare ?? 0)))} | ${pct(mean(rs.map((r) => r.readyShareFar ?? 0)))} |`,
+      `| ${rows[i]!.label} | ${rs.filter((r) => r.bursts > 0).length} of ${rs.length} | ${mean(rs.map((r) => r.bursts)).toFixed(1)} | ${firsts.length ? clock(firsts[Math.floor(firsts.length / 2)]!) : 'none'} | ${pct(mean(rs.map((r) => r.peakShare[0]!)))} / ${pct(mean(rs.map((r) => r.peakShare[1]!)))} | ${Math.max(...rs.map((r) => r.maxHotSpotC)).toFixed(0)} | ${Math.round(mean(rs.map((r) => r.buildingHoursDark))).toLocaleString('en-GB')} | ${pct(mean(rs.map((r) => r.readyShare ?? 0)))} | ${pct(mean(rs.map((r) => r.readyShareFar ?? 0)))} |`,
     );
   });
   return lines.join('\n');
