@@ -2,7 +2,7 @@
 
 _Written by `npm run experiment` (scripts/experiment.ts). Do not edit by hand (VALIDATION §2)._
 
-- **Commit:** `0f4adbe`
+- **Commit:** `8af25d4`
 - **Scenario:** `standard` (A normal night), 4320 ticks per run
 - **Seeds:** 1 to 10
 - **Warm-up:** the first 1440 ticks (one day) are excluded; 2 nights are measured
@@ -10,7 +10,18 @@ _Written by `npm run experiment` (scripts/experiment.ts). Do not edit by hand (V
 
 Peak is the highest one-tick load over the measured nights as a share of the rating, averaged over seeds. Per-night figures are averaged over the measured nights and then over seeds. Ready shares count rickshaws that left at or above `readyAtSoc` during the measured nights; near and far are the halves of the feeder. Lowest socket V is the lowest reading at any plugged-in charger while energised, over all seeds.
 
-## Headline: three systems, six scenarios, one table
+## Summary
+
+| | Ordinary | App-controlled | Smart (ours) |
+| --- | --- | --- | --- |
+| Transformer bursts, all 6 scenarios | 60 of 60 | 20 of 60 | 0 of 60 |
+| Transformer bursts when the network fails | 10 of 10 | 10 of 10 | 0 of 10 |
+| Rickshaws fully charged, normal night | 50% | 100% | 96% |
+| Rickshaws fully charged, worst night | 0% | 0% | 95% |
+
+Our simulation of Dhanmondi, 10 runs per scenario. Worst night: a heatwave, 20% of chargers ignoring the rule, and the network down from 21:00. Transformer heating is an illustrative model.
+
+## Full table: three systems, six scenarios
 
 The Dhanmondi map: two transformers, 200 rickshaws, three simulated days from tick 0, seeds as above. Each scenario hits all three systems with the same events at the same moment. **Ordinary**: charge flat out. **App-controlled**: a utility server schedules every charger over the mobile network; without it, chargers charge flat out. **Smart (ours)**: each charger senses only its own socket voltage.
 
