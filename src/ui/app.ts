@@ -113,7 +113,7 @@ const ICONS = {
   chart:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13.5h12"/><path d="M3 10.5l3-3.5 3 2 4-5"/></svg>',
   sliders:
-    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 4.5h11M2.5 11.5h11"/><circle cx="6" cy="4.5" r="1.8" fill="#fff"/><circle cx="10.5" cy="11.5" r="1.8" fill="#fff"/></svg>',
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 4.5h11M2.5 11.5h11"/><circle cx="6" cy="4.5" r="1.8" style="fill:var(--knob)"/><circle cx="10.5" cy="11.5" r="1.8" style="fill:var(--knob)"/></svg>',
   cut:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5l-2 2a2.1 2.1 0 0 1-3-3l2-2"/><path d="M9.5 6.5l2-2a2.1 2.1 0 0 1 3 3l-2 2"/><path d="M6 3V1.5M3 6H1.5M10 13v1.5M13 10h1.5"/></svg>',
   link:

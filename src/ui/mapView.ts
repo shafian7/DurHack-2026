@@ -178,6 +178,10 @@ export class MapView {
       if (out) {
         ctx.fillStyle = colors.dark;
         ctx.fill(path);
+        // A faint outline keeps dark blocks readable against the navy ground.
+        ctx.strokeStyle = colors.darkEdge;
+        ctx.lineWidth = 0.8 / this.scale;
+        ctx.stroke(path);
       }
     });
     // Night falls over the whole map; lit homes glow through it.
@@ -236,7 +240,7 @@ export class MapView {
       ctx.save();
       ctx.lineCap = 'round';
       if (frame.link === 'up') {
-        ctx.strokeStyle = 'rgba(124,92,214,0.35)';
+        ctx.strokeStyle = 'rgba(167,139,250,0.5)';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([2, 5]);
         ctx.beginPath();
@@ -259,7 +263,7 @@ export class MapView {
         const flash = since < CUT_FLASH_MS ? 1 - since / CUT_FLASH_MS : 0;
         const gap = 8 + 10 * Math.min(1, since / 400);
         const mid = len / 2;
-        ctx.strokeStyle = flash > 0 ? `rgba(226,85,63,${0.4 + 0.6 * flash})` : 'rgba(120,126,138,0.45)';
+        ctx.strokeStyle = flash > 0 ? `rgba(255,90,74,${0.4 + 0.6 * flash})` : 'rgba(158,163,214,0.4)';
         ctx.lineWidth = 1.5 + 1.5 * flash;
         ctx.setLineDash([3, 4]);
         ctx.beginPath();
@@ -290,16 +294,16 @@ export class MapView {
       const pulse = (frame.now / 1600) % 1;
       ctx.beginPath();
       ctx.arc(hx, hy, 14 + 16 * pulse, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(124,92,214,${0.45 * (1 - pulse)})`;
+      ctx.strokeStyle = `rgba(167,139,250,${0.5 * (1 - pulse)})`;
       ctx.lineWidth = 2;
       ctx.stroke();
     }
     ctx.save();
-    ctx.shadowColor = 'rgba(20,30,45,0.25)';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 2;
     roundRect(ctx, hx - 15, hy - 15, 30, 30, 8);
-    ctx.fillStyle = up ? colors.central : '#8a9099';
+    ctx.fillStyle = up ? colors.central : '#3A3F7E';
     ctx.fill();
     ctx.restore();
     // Antenna and waves.
@@ -334,7 +338,7 @@ export class MapView {
     ctx.font = `600 10.5px ${font}`;
     const w = ctx.measureText(label).width + 14;
     roundRect(ctx, hx - w / 2, hy - 36, w, 17, 8.5);
-    ctx.fillStyle = up ? 'rgba(255,255,255,0.92)' : colors.burst;
+    ctx.fillStyle = up ? 'rgba(19,25,74,0.94)' : colors.burst;
     ctx.fill();
     ctx.fillStyle = up ? colors.central : '#ffffff';
     ctx.textAlign = 'center';
@@ -358,7 +362,7 @@ export class MapView {
         ctx.lineJoin = 'round';
         if (out) {
           ctx.setLineDash([4 * px, 4 * px]);
-          ctx.strokeStyle = 'rgba(90,96,108,0.55)';
+          ctx.strokeStyle = 'rgba(158,163,214,0.4)';
           ctx.lineWidth = 2 * px;
         } else {
           ctx.setLineDash([]);
@@ -411,22 +415,22 @@ export class MapView {
       const out = z.transformer.tripped || z.transformer.burst;
       const box = this.garageBox(g.at);
       ctx.save();
-      ctx.shadowColor = 'rgba(20,30,45,0.18)';
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
       ctx.shadowBlur = 6;
       ctx.shadowOffsetY = 1.5;
       roundRect(ctx, box.x, box.y, box.w, box.h, 5);
-      ctx.fillStyle = out ? '#5b616b' : '#ffffff';
+      ctx.fillStyle = out ? '#0A0D24' : colors.panelHi;
       ctx.fill();
       ctx.restore();
       roundRect(ctx, box.x, box.y, box.w, box.h, 5);
-      ctx.strokeStyle = out ? '#3f444c' : '#d5d0c6';
+      ctx.strokeStyle = out ? colors.building : colors.road;
       ctx.lineWidth = 1;
       ctx.stroke();
 
       ctx.font = `600 9.5px ${font}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillStyle = 'rgba(11,18,48,0.88)';
       ctx.fillRect(box.x + box.w / 2 - 9, box.y - 11, 18, 10);
       ctx.fillStyle = colors.ink;
       ctx.fillText(g.id, box.x + box.w / 2, box.y - 1);
@@ -439,19 +443,19 @@ export class MapView {
         const x = box.x + 4 + col * (CELL + GAP);
         const y = box.y + 4 + row * (CELL + GAP);
         if (c.state === 'away' || c.state === 'removed') {
-          ctx.fillStyle = out ? '#6b717b' : '#efece6';
+          ctx.fillStyle = out ? colors.land : colors.building;
           ctx.fillRect(x, y, CELL, CELL);
           continue;
         }
         const arriving = c.arrivedTick !== null && tick - c.arrivedTick < 3;
         if (out) {
-          ctx.fillStyle = '#8a9099';
+          ctx.fillStyle = '#3A3F7E';
           ctx.fillRect(x, y, CELL, CELL);
         } else if (c.state === 'charging') {
           ctx.fillStyle = colors.charging;
           ctx.fillRect(x, y, CELL, CELL);
-          // Battery level as a light bar from the bottom.
-          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          // Battery level: the empty part is shaded dark from the top.
+          ctx.fillStyle = 'rgba(11,18,48,0.6)';
           const h = Math.round(CELL * (1 - c.soc));
           ctx.fillRect(x, y, CELL, h);
         } else if (c.state === 'full') {
@@ -468,7 +472,7 @@ export class MapView {
           ctx.strokeRect(x - 0.5, y - 0.5, CELL + 1, CELL + 1);
         }
         if (arriving) {
-          ctx.fillStyle = 'rgba(31,122,98,0.35)';
+          ctx.fillStyle = 'rgba(74,222,154,0.35)';
           ctx.fillRect(x - 1, y - 1, CELL + 2, CELL + 2);
         }
       }
@@ -482,10 +486,10 @@ export class MapView {
         const x = box.x + 4 + (bay % GRID_COLS) * (CELL + GAP);
         const y = box.y + 4 + Math.floor(bay / GRID_COLS) * (CELL + GAP);
         const pulse = 0.5 + 0.5 * Math.sin(this.lastNow / 220);
-        ctx.strokeStyle = colors.ink;
+        ctx.strokeStyle = colors.yellow;
         ctx.lineWidth = 1.6;
         ctx.strokeRect(x - 2.5, y - 2.5, CELL + 5, CELL + 5);
-        ctx.strokeStyle = `rgba(29,38,51,${0.25 + 0.35 * pulse})`;
+        ctx.strokeStyle = `rgba(255,217,102,${0.3 + 0.4 * pulse})`;
         ctx.lineWidth = 1;
         ctx.strokeRect(x - 5, y - 5, CELL + 10, CELL + 10);
       }
@@ -530,28 +534,28 @@ export class MapView {
           ctx.fill();
         }
         ctx.save();
-        ctx.shadowColor = 'rgba(20,30,45,0.25)';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = colors.panelHi;
         ctx.fill();
         ctx.restore();
         // Load ring.
         ctx.beginPath();
         ctx.arc(x, y, r - 3, 0, Math.PI * 2);
-        ctx.strokeStyle = '#ece8e0';
+        ctx.strokeStyle = colors.line;
         ctx.lineWidth = 4;
         ctx.stroke();
         ctx.beginPath();
         ctx.arc(x, y, r - 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, share / 1.3));
-        ctx.strokeStyle = tv.tripped ? '#8a9099' : loadColor(share);
+        ctx.strokeStyle = tv.tripped ? colors.faint : loadColor(share);
         ctx.lineCap = 'round';
         ctx.stroke();
         ctx.lineCap = 'butt';
         // Bolt.
-        ctx.fillStyle = colors.ink;
+        ctx.fillStyle = colors.yellow;
         bolt(ctx, x, y, 7);
       }
 
@@ -566,12 +570,18 @@ export class MapView {
       const lx = x - w / 2;
       const ly = y + r + 6;
       ctx.save();
-      ctx.shadowColor = 'rgba(20,30,45,0.18)';
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
       ctx.shadowBlur = 6;
       roundRect(ctx, lx, ly, w, 20, 10);
-      ctx.fillStyle = tv.burst ? colors.burst : '#ffffff';
+      ctx.fillStyle = tv.burst ? colors.burst : colors.panel;
       ctx.fill();
       ctx.restore();
+      if (!tv.burst) {
+        roundRect(ctx, lx, ly, w, 20, 10);
+        ctx.strokeStyle = colors.line;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
       ctx.font = `600 11px ${font}`;
@@ -654,10 +664,10 @@ function drawRickshaw(ctx: CanvasRenderingContext2D, x: number, y: number, headi
   ctx.fillStyle = fill;
   ctx.fill();
   ctx.lineWidth = 1;
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.strokeStyle = 'rgba(11,18,48,0.9)';
   ctx.stroke();
   // Canopy.
-  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.fillStyle = '#2E7D5B';
   ctx.fillRect(-3.2, -1.6, 3, 3.2);
   ctx.restore();
 }
@@ -695,7 +705,7 @@ function drawBurst(ctx: CanvasRenderingContext2D, x: number, y: number, since: n
     const r = 5 + life * 13;
     ctx.beginPath();
     ctx.arc(px, py, r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(70,72,78,${0.32 * (1 - life)})`;
+    ctx.fillStyle = `rgba(158,163,214,${0.3 * (1 - life)})`;
     ctx.fill();
   }
   // Ember glow.
@@ -707,7 +717,7 @@ function drawBurst(ctx: CanvasRenderingContext2D, x: number, y: number, since: n
   // Scorched casing.
   ctx.beginPath();
   ctx.arc(x, y, 13, 0, Math.PI * 2);
-  ctx.fillStyle = '#2b2d31';
+  ctx.fillStyle = '#05060F';
   ctx.fill();
   ctx.strokeStyle = colors.burst;
   ctx.lineWidth = 2.5;

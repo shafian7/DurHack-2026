@@ -33,11 +33,11 @@ export interface SocketInfo {
 export const SOCKET_WINDOW = 90;
 
 const STATE_COLOR: Record<ChargerState, string> = {
-  away: '#c9c4ba',
+  away: colors.building,
   waiting: colors.warn,
   charging: colors.charging,
   full: colors.full,
-  removed: '#c9c4ba',
+  removed: colors.building,
 };
 
 export class SocketView {

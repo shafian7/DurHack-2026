@@ -43,7 +43,7 @@ export function drawChart(canvas: HTMLCanvasElement, width: number, height: numb
 
   // Grid and axis labels.
   ctx.font = `500 10px ${font}`;
-  ctx.fillStyle = colors.faint;
+  ctx.fillStyle = colors.muted;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   ctx.strokeStyle = colors.line;
@@ -97,7 +97,7 @@ export function drawChart(canvas: HTMLCanvasElement, width: number, height: numb
 
   // Now.
   if (time >= t0 && time <= t1) {
-    ctx.strokeStyle = 'rgba(29,38,51,0.25)';
+    ctx.strokeStyle = 'rgba(238,240,255,0.35)';
     ctx.beginPath();
     ctx.moveTo(x(time), top);
     ctx.lineTo(x(time), top + h);
