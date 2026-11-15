@@ -2,7 +2,7 @@
 
 _Written by `npm run experiment` (scripts/experiment.ts). Do not edit by hand (VALIDATION §2)._
 
-- **Commit:** `917f3b9`
+- **Commit:** `aa4359e`
 - **Scenario:** `standard` (A normal night), 4320 ticks per run
 - **Seeds:** 1 to 10
 - **Warm-up:** the first 1440 ticks (one day) are excluded; 2 nights are measured
@@ -31,6 +31,17 @@ Peak is the highest one-tick load over the measured nights as a share of the rat
 | 6 | Nothing to fail | PASS | with the scheduler killed at tick 1800, central tripped in 10 of 10 seeds (needs at least 8) |
 
 Clause 6 is judged on central mode with the scheduler killed at tick 1800. The local chargers are unaffected by `killScheduler` by construction, because they never had a scheduler.
+
+## Dhanmondi district: two transformers, three days from tick 0 (plan.md §3.7)
+
+Both transformers of the map (T1 feeds 480 buildings, T2 feeds 309 buildings), 100 rickshaws each. Heating: ambient 32 °C, rated hot-spot rise 78 °C, time constant 75 min, burst at 140 °C. These are illustrative values, calibrated against naive charging only. Measured from tick 0, because the demo is the first night.
+
+| Mode | Seeds with a burst | Bursts per run | Earliest burst (median) | Peak T1 / T2 | Hottest °C | Building-hours dark | Ready | Ready far |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| naive | 10 of 10 | 1.0 | night 1, 23:31 | 122.8% / 134.2% | 140 | 18,705 | 50.2% | 50.2% |
+| stagger | 8 of 10 | 0.8 | night 1, 02:32 | 111.2% / 126.6% | 140 | 12,747 | 62.9% | 62.9% |
+| local | 0 of 10 | 0.0 | none | 105.4% / 108.6% | 114 | 0 | 96.1% | 95.1% |
+| central | 0 of 10 | 0.0 | none | 97.1% / 97.2% | 105 | 0 | 99.9% | 99.9% |
 
 ## Resilience experiments (B24)
 
