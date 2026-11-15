@@ -8,7 +8,7 @@ import { defaultConfig } from '../src/sim';
 import { standard, tickAt } from '../src/scenarios';
 import { LOCAL_PARAMS } from '../src/policies/local';
 import { MAX_DELAY_TICKS } from '../src/policies/stagger';
-import { districtSection, headlineTable } from './district';
+import { districtSection, headlineTable, summaryTable } from './district';
 import {
   formatPerSeed,
   formatTable,
@@ -93,7 +93,13 @@ export function buildReport(options: ReportOptions): string {
     '',
     ...(options.district
       ? [
-          '## Headline: three systems, six scenarios, one table',
+          '## Summary',
+          '',
+          summaryTable(seeds),
+          '',
+          `Our simulation of Dhanmondi, ${seeds.length} runs per scenario. Worst night: a heatwave, 20% of chargers ignoring the rule, and the network down from 21:00. Transformer heating is an illustrative model.`,
+          '',
+          '## Full table: three systems, six scenarios',
           '',
           'The Dhanmondi map: two transformers, 200 rickshaws, three simulated days from tick 0, seeds as above. Each scenario hits all three systems with the same events at the same moment. **Ordinary**: charge flat out. **App-controlled**: a utility server schedules every charger over the mobile network; without it, chargers charge flat out. **Smart (ours)**: each charger senses only its own socket voltage.',
           '',

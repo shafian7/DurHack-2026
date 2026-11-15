@@ -178,3 +178,31 @@ export function districtSection(seeds: readonly number[]): string {
   });
   return lines.join('\n');
 }
+
+
+/**
+ * The judge-sized summary: four rows, three systems. Computed from the same
+ * runs as the headline table, never typed by hand.
+ */
+export function summaryTable(seeds: readonly number[]): string {
+  const scenarios = headlineScenarios();
+  const runs = HEADLINE_SYSTEMS.map((sys) =>
+    scenarios.map((sc) => seeds.map((seed) => runDistrict(sys.mode, seed, 3 * TICKS_PER_DAY, sc.script))),
+  );
+  const burstRuns = (sys: number, sc?: number): string => {
+    const pool = sc === undefined ? runs[sys]!.flat() : runs[sys]![sc]!;
+    return `${pool.filter((r) => r.bursts > 0).length} of ${pool.length}`;
+  };
+  const charged = (sys: number, sc: number): string => `${Math.round(mean(runs[sys]![sc]!.map((r) => r.readyShare ?? 0)) * 100)}%`;
+  const worst = scenarios.length - 1;
+  const row = (label: string, cell: (sys: number) => string): string =>
+    `| ${label} | ${HEADLINE_SYSTEMS.map((_, i) => cell(i)).join(' | ')} |`;
+  return [
+    `| | ${HEADLINE_SYSTEMS.map((s) => s.label).join(' | ')} |`,
+    '| --- | --- | --- | --- |',
+    row(`Transformer bursts, all ${scenarios.length} scenarios`, (i) => burstRuns(i)),
+    row('Transformer bursts when the network fails', (i) => burstRuns(i, 1)),
+    row('Rickshaws fully charged, normal night', (i) => charged(i, 0)),
+    row('Rickshaws fully charged, worst night', (i) => charged(i, worst)),
+  ].join('\n');
+}
