@@ -49,6 +49,8 @@ export class MapView {
   private linkCutAt: number | null = null;
   /** The charger whose socket view is open, highlighted on the map. */
   selected: { zone: number; id: number } | null = null;
+  /** The frame's clock, for effects drawn outside draw()'s arguments. */
+  private lastNow = 0;
   /** The control centre's position: the road node nearest the middle of the garages. */
   private readonly hub: Point;
 
@@ -160,6 +162,7 @@ export class MapView {
 
   draw(frame: Frame): void {
     const ctx = this.ctx;
+    this.lastNow = frame.now;
     if (!this.base) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(this.base, 0, 0);
@@ -478,7 +481,7 @@ export class MapView {
         const box = this.garageBox(g.at);
         const x = box.x + 4 + (bay % GRID_COLS) * (CELL + GAP);
         const y = box.y + 4 + Math.floor(bay / GRID_COLS) * (CELL + GAP);
-        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220);
+        const pulse = 0.5 + 0.5 * Math.sin(this.lastNow / 220);
         ctx.strokeStyle = colors.ink;
         ctx.lineWidth = 1.6;
         ctx.strokeRect(x - 2.5, y - 2.5, CELL + 5, CELL + 5);

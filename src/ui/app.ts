@@ -144,6 +144,14 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const motion = new Motion(deps.map);
   let seed = 1;
   const search = typeof location === 'undefined' ? '' : location.search;
+  /**
+   * Film mode (`?film`): no animation loop of its own. A recording script
+   * drives time frame by frame through window.rickshawsFilm, so a video is
+   * the same every time it is rendered (scripts/video/).
+   */
+  const film = /[?&]film\b/.test(search);
+  let filmNow = 0;
+  const clockNow = (): number => (film ? filmNow : performance.now());
   let START_TICK = startTickFrom(search);
   /** When the network drops by itself in this scene, or null. */
   let cutTick: number | null = null;
@@ -503,7 +511,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const showBanner = (s: Side, html: string, tone: 'bad' | 'ok' | 'dark', ms: number): void => {
     s.banner.innerHTML = html;
     s.banner.className = `banner show ${tone}`;
-    s.bannerUntil = performance.now() + ms;
+    s.bannerUntil = clockNow() + ms;
   };
   /** Why the network changed, for the wording of the announcements. */
   type Reason = 'manual' | 'scheduled' | 'tower';
@@ -685,7 +693,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     }
   }
 
-  let last = performance.now();
+  let last = clockNow();
   let raf = 0;
   let overlaysAt = 0;
   const frame = (now: number): void => {
@@ -736,12 +744,64 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
       const box = chartBox.getBoundingClientRect();
       drawChart(chart, Math.floor(box.width), Math.floor(box.height), time, series);
     }
-    raf = requestAnimationFrame(frame);
+    if (!film) raf = requestAnimationFrame(frame);
   };
 
   setPlaying(true);
   goTo(/[?&](at|scene=free)/.test(search) ? 'free' : 'today');
-  raf = requestAnimationFrame(frame);
+  if (!film) raf = requestAnimationFrame(frame);
+
+  if (film) {
+    app.classList.add('film');
+    // A full-screen title card and a subtitle line, for the video only.
+    const card = el('div', 'film-card');
+    const subtitle = el('div', 'film-sub');
+    document.body.append(card, subtitle);
+    const api = {
+      /** Advance the page by `ms` of video time and draw one frame. */
+      frame(ms: number): void {
+        filmNow += ms;
+        frame(filmNow);
+      },
+      goTo: (id: SceneId): void => goTo(id),
+      speed(minutesPerSecond: number): void {
+        speed = minutesPerSecond;
+      },
+      pause(on: boolean): void {
+        setPlaying(!on);
+      },
+      reason(r: OutageReason): void {
+        reason = r;
+      },
+      cut(): void {
+        setLink(false, 'scheduled');
+      },
+      select(zone: number, id: number): void {
+        select({ zone, id });
+      },
+      unselect(): void {
+        select(null);
+      },
+      graph(open: boolean): void {
+        setOpen(sheet, chartBtn, open);
+      },
+      card(html: string | null): void {
+        card.innerHTML = html ?? '';
+        card.classList.toggle('show', html !== null);
+      },
+      sub(text: string | null): void {
+        subtitle.textContent = text ?? '';
+        subtitle.classList.toggle('show', Boolean(text));
+      },
+      state(): { tick: number; bursts: number[] } {
+        return {
+          tick: sides[0]!.district.tick,
+          bursts: sides.map((s) => s.district.zones.reduce((n, z) => n + z.metrics().bursts, 0)),
+        };
+      },
+    };
+    (window as unknown as { rickshawsFilm: typeof api }).rickshawsFilm = api;
+  }
 
   return {
     destroy() {

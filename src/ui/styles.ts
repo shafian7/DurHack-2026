@@ -118,6 +118,21 @@ button { font: inherit; color: inherit; }
 .socket-facts em { font-style: normal; font-weight: 550; font-size: 11px; color: ${colors.muted}; }
 .socket-facts i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
 .socket-why { margin-top: 7px; font-size: 12.5px; line-height: 1.4; color: ${colors.ink}; }
+.film .tools { visibility: hidden; }
+.film .story { display: none; }
+.film-card { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: ${colors.bg}; opacity: 0; transition: none; padding: 0 12vw; }
+.film-card.show { opacity: 1; }
+.film-card .eyebrow { font-size: 20px; letter-spacing: .22em; text-transform: uppercase; color: ${colors.muted}; font-weight: 700; }
+.film-card h1 { font-size: 76px; line-height: 1.05; margin: 18px 0 0; font-weight: 800; letter-spacing: -0.02em; }
+.film-card h2 { font-size: 30px; margin: 22px 0 0; font-weight: 500; color: ${colors.muted}; line-height: 1.35; }
+.film-card .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 54px; width: 100%; max-width: 1400px; }
+.film-card .stat { background: #fff; border-radius: 26px; padding: 30px 28px; text-align: left; box-shadow: 0 10px 30px rgba(20,30,45,.07); }
+.film-card .stat b { display: block; font-size: 54px; font-weight: 800; letter-spacing: -0.02em; }
+.film-card .stat span { display: block; font-size: 21px; color: ${colors.ink}; margin-top: 8px; line-height: 1.35; }
+.film-card .stat small { display: block; font-size: 15px; color: ${colors.muted}; margin-top: 12px; }
+.film-card .note { font-size: 17px; color: ${colors.faint}; margin-top: 36px; }
+.film-sub { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); z-index: 60; max-width: 1500px; background: rgba(20,24,32,.86); color: #fff; font-size: 27px; line-height: 1.35; font-weight: 550; padding: 12px 24px; border-radius: 14px; text-align: center; opacity: 0; }
+.film-sub.show { opacity: 1; }
 kbd { font: inherit; font-weight: 650; background: #fff; border: 1px solid ${colors.line}; border-radius: 5px; padding: 0 5px; }
 
 @media (max-width: 1100px) {
