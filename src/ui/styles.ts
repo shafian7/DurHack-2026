@@ -9,7 +9,7 @@ export const css = `
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: ${colors.bg}; color: ${colors.ink}; font-family: ${font}; -webkit-font-smoothing: antialiased; overflow: hidden; }
 button { font: inherit; color: inherit; }
-.app { display: grid; grid-template-rows: auto 1fr; gap: 10px; height: 100vh; padding: 12px 14px 14px; }
+.app { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; height: 100vh; padding: 12px 14px 14px; }
 
 /* ---------------------------------------------------------------- top bar */
 .top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
@@ -57,8 +57,8 @@ button { font: inherit; color: inherit; }
 .vs { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; color: ${colors.muted}; white-space: nowrap; }
 
 /* ---------------------------------------------------------------- sheets */
-.sheet { position: fixed; left: 50%; bottom: 18px; transform: translate(-50%, 20px); width: min(1100px, calc(100vw - 36px)); height: 250px; border-radius: 22px; padding: 14px 18px 12px; display: grid; grid-template-rows: auto 1fr; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 10; background: rgba(255,255,255,.95); }
-.sheet.open { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.sheet { height: 0; margin-top: -10px; padding: 0 18px; border-width: 0; overflow: hidden; border-radius: 22px; display: grid; grid-template-rows: auto 1fr; opacity: 0; pointer-events: none; transition: height .28s ease, margin-top .28s ease, padding .28s ease, opacity .2s; background: ${colors.panel}; box-shadow: 0 1px 2px rgba(20,30,45,.05), 0 10px 30px rgba(20,30,45,.07); }
+.sheet.open { height: clamp(170px, 26vh, 250px); margin-top: 0; padding: 14px 18px 12px; opacity: 1; pointer-events: auto; }
 .sheet header { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
 .sheet h3 { margin: 0; font-size: 14px; font-weight: 750; }
 .legend { display: flex; gap: 14px; color: ${colors.muted}; font-weight: 550; font-size: 12px; flex-wrap: wrap; }

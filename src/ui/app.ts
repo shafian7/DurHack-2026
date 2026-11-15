@@ -163,7 +163,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   maps.append(vs);
 
   // -------------------------------------------------------------- load graph sheet
-  const sheet = el('div', 'sheet glass');
+  const sheet = el('div', 'sheet');
   const sheetHead = el('header');
   const legend = el('span', 'legend');
   legend.innerHTML = `
@@ -225,8 +225,9 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   );
   pop.append(popHead, actions, key, note);
 
-  app.append(top, maps);
-  document.body.append(sheet, pop);
+  // The graph is a row of the page, so opening it shrinks the maps instead of covering them.
+  app.append(top, maps, sheet);
+  document.body.append(pop);
 
   // -------------------------------------------------------------- open and close
   const setOpen = (panel: HTMLElement, button: HTMLElement, open: boolean): void => {
