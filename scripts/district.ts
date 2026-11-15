@@ -30,6 +30,14 @@ export interface DistrictRun {
   readonly buildingHoursDark: number;
   readonly readyShare: number | null;
   readonly readyShareFar: number | null;
+  /** Minutes any transformer spent above its rating, per night. */
+  readonly overloadMinutesPerNight: number;
+  /** Average battery level of rickshaws as they left. */
+  readonly meanDepartureSoc: number | null;
+  /** Rickshaws that left below the ready level, per night. */
+  readonly notReadyPerNight: number;
+  /** Rickshaws that left, per night. */
+  readonly departuresPerNight: number;
 }
 
 export function runDistrict(
@@ -54,6 +62,8 @@ export function runDistrict(
   const ready = ms.reduce((n, m) => n + m.readyDepartures, 0);
   const farParts = ms.filter((m) => m.readyShareFar !== null);
   const burstTicks = ms.map((m) => m.burstTick).filter((t): t is number => t !== null);
+  const nights = ticks / TICKS_PER_DAY;
+  const socSum = ms.reduce((n, m) => n + (m.meanDepartureSoc ?? 0) * m.departures, 0);
   return {
     mode,
     script: ordered,
@@ -65,7 +75,67 @@ export function runDistrict(
     buildingHoursDark: ms.reduce((n, m, i) => n + (m.outageTicks / 60) * dhanmondi.transformers[i]!.buildings, 0),
     readyShare: departures ? ready / departures : null,
     readyShareFar: farParts.length ? farParts.reduce((s, m) => s + m.readyShareFar!, 0) / farParts.length : null,
+    overloadMinutesPerNight: ms.reduce((n, m) => n + m.overloadTicks, 0) / nights,
+    meanDepartureSoc: departures ? socSum / departures : null,
+    notReadyPerNight: (departures - ready) / nights,
+    departuresPerNight: departures / nights,
   };
+}
+
+// ------------------------------------------------------------- headline table
+
+export interface HeadlineScenario {
+  readonly name: string;
+  readonly script: readonly ScriptedCommand[];
+}
+
+/** The scenarios of the headline table: the same events hit all three systems. */
+export function headlineScenarios(): HeadlineScenario[] {
+  const outage: ScriptedCommand = { atTick: DEMO_CUT_TICK, command: { kind: 'killScheduler' } };
+  const heat: ScriptedCommand = { atTick: 0, command: { kind: 'setBaseLoadScale', scale: 1.3 } };
+  const stubborn: ScriptedCommand = { atTick: 0, command: { kind: 'stubbornChargers', fraction: 0.2 } };
+  return [
+    { name: 'Normal night', script: [] },
+    { name: 'Network down from 21:00', script: [outage] },
+    { name: 'Heatwave (homes use 30% more)', script: [heat] },
+    {
+      name: '1-hour power cut at 22:00 (towers fail after 30 min)',
+      script: [{ atTick: POWER_CUT_TICK, command: { kind: 'powerCut', ticks: 60 } }, ...networkOutageForPowerCut(POWER_CUT_TICK, 60)],
+    },
+    { name: '20% of chargers ignore the rule', script: [stubborn] },
+    { name: 'Worst night: heatwave, 20% rule-breakers, network down from 21:00', script: [heat, stubborn, outage] },
+  ];
+}
+
+export const HEADLINE_SYSTEMS: readonly { label: string; mode: FleetMode }[] = [
+  { label: 'Ordinary', mode: 'naive' },
+  { label: 'App-controlled', mode: 'central' },
+  { label: 'Smart (ours)', mode: 'local' },
+];
+
+const median = (xs: number[]): number | null => {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)]!;
+};
+
+/** One table: every scenario, every system, every measure. */
+export function headlineTable(seeds: readonly number[]): string {
+  const lines = [
+    '| Scenario | System | Runs with a burst | Median first burst | Worst peak load | Hottest | Overloaded min / night | Building-hours dark | Left fully charged | Far end fully charged | Avg battery at departure | Not charged / night |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  ];
+  for (const sc of headlineScenarios()) {
+    HEADLINE_SYSTEMS.forEach((sys, i) => {
+      const rs = seeds.map((seed) => runDistrict(sys.mode, seed, 3 * TICKS_PER_DAY, sc.script));
+      const first = median(rs.map((r) => r.firstBurstTick).filter((t): t is number => t !== null));
+      const runsWithBurst = rs.filter((r) => r.bursts > 0).length;
+      lines.push(
+        `| ${i === 0 ? `**${sc.name}**` : ''} | ${sys.label} | ${runsWithBurst} of ${rs.length} | ${first === null ? '–' : clock(first)} | ${(Math.max(...rs.map((r) => Math.max(...r.peakShare))) * 100).toFixed(0)}% | ${Math.max(...rs.map((r) => r.maxHotSpotC)).toFixed(0)} °C | ${mean(rs.map((r) => r.overloadMinutesPerNight)).toFixed(0)} | ${Math.round(mean(rs.map((r) => r.buildingHoursDark))).toLocaleString('en-GB')} | ${pct(mean(rs.map((r) => r.readyShare ?? 0)))} | ${pct(mean(rs.map((r) => r.readyShareFar ?? 0)))} | ${pct(mean(rs.map((r) => r.meanDepartureSoc ?? 0)))} | ${mean(rs.map((r) => r.notReadyPerNight)).toFixed(1)} of ${mean(rs.map((r) => r.departuresPerNight)).toFixed(0)} |`,
+      );
+    });
+  }
+  return lines.join('\n');
 }
 
 const pct = (x: number | null): string => (x === null ? 'n/a' : `${(x * 100).toFixed(1)}%`);

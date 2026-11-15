@@ -8,7 +8,7 @@ import { defaultConfig } from '../src/sim';
 import { standard, tickAt } from '../src/scenarios';
 import { LOCAL_PARAMS } from '../src/policies/local';
 import { MAX_DELAY_TICKS } from '../src/policies/stagger';
-import { districtSection } from './district';
+import { districtSection, headlineTable } from './district';
 import {
   formatPerSeed,
   formatTable,
@@ -91,6 +91,23 @@ export function buildReport(options: ReportOptions): string {
     '',
     'Peak is the highest one-tick load over the measured nights as a share of the rating, averaged over seeds. Per-night figures are averaged over the measured nights and then over seeds. Ready shares count rickshaws that left at or above `readyAtSoc` during the measured nights; near and far are the halves of the feeder. Lowest socket V is the lowest reading at any plugged-in charger while energised, over all seeds.',
     '',
+    ...(options.district
+      ? [
+          '## Headline: three systems, six scenarios, one table',
+          '',
+          'The Dhanmondi map: two transformers, 200 rickshaws, three simulated days from tick 0, seeds as above. Each scenario hits all three systems with the same events at the same moment. **Ordinary**: charge flat out. **App-controlled**: a utility server schedules every charger over the mobile network; without it, chargers charge flat out. **Smart (ours)**: each charger senses only its own socket voltage.',
+          '',
+          headlineTable(seeds),
+          '',
+          '- **Runs with a burst:** runs (of the seeds) in which a transformer overheated past its burst point. A burst transformer stays dark for the rest of the run.',
+          '- **Worst peak load:** the highest one-minute load on either transformer, as a share of its rating, over all runs.',
+          '- **Overloaded min / night:** minutes per night any transformer spent above its rating (above the rating is not the same as bursting; heating is gradual).',
+          '- **Building-hours dark:** buildings without power times hours, over the three days.',
+          '- **Left fully charged:** rickshaws that left at 90% or more. **Not charged / night:** those that left below 90%.',
+          '- Transformer heating and the burst point are illustrative model values (plan.md §3.3). Tower backup during power cuts is an assumed 30 minutes.',
+          '',
+        ]
+      : []),
     '## Standard experiment',
     '',
     formatTable(main),
