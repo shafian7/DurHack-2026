@@ -100,7 +100,7 @@ export class MapView {
     const px = 1 / this.scale; // one CSS pixel in metres
 
     this.screenTransform(ctx);
-    ctx.fillStyle = '#f7f5f0';
+    ctx.fillStyle = colors.land;
     ctx.fillRect(0, 0, this.cssW, this.cssH);
 
     this.mapTransform(ctx);
@@ -163,7 +163,7 @@ export class MapView {
     if (night > 0) {
       ctx.fillStyle = colors.night;
       ctx.globalAlpha = night;
-      ctx.fillRect(this.ox, this.oy, this.map.width * this.scale, this.map.height * this.scale);
+      ctx.fillRect(0, 0, this.cssW, this.cssH);
       ctx.globalAlpha = 1;
     }
     this.mapTransform(ctx);

@@ -2,6 +2,12 @@
 
 **Status:** built on the `shafian` branch, Sunday 15 November 2026. It replaces the first interface (B40 to B43) and the street-diagram proposal. The full plan is in [plan.md](../plan.md) §1 and §3.6.
 
+## Layout (demo version, 15 November)
+
+The two maps fill the screen. The top bar holds the name, a large clock, play/pause, speed (2×, 10×, 30×, 60× simulated minutes per second), Restart, **Load graph** and **Controls**. On each map, small floating labels show: the title and one-line explanation (top left), a single status (top right: "All lights on", "Transformer overloaded", "Power cut", or "T2 burst · N buildings dark" in red), and three figures (bottom left: charging now, hottest transformer, left fully charged). A burst also gives a centred red announcement and a red outline on that map. A "Same night" badge sits between the maps. **Load graph** opens the chart as a sheet from the bottom. **Controls** opens a popover with the actions, the colour key and the data note. Keys: space play/pause, 1 to 4 speed, G graph, C controls, R restart, Esc close.
+
+The first version (dashboard layout, with the chart and controls always visible) is tagged `dhanmondi-v1`.
+
 ## What is on screen
 
 - **Header:** name, place, clock (night and time), play/pause, and a speed of 2, 10, 30 or 60 simulated minutes per second.

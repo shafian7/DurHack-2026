@@ -1,7 +1,8 @@
 /**
  * The page: two copies of Dhanmondi on the same night, ordinary chargers on
- * the left and smart chargers on the right, with the load chart and the
- * actions below (plan.md §1). Every command goes to both sides on the same tick.
+ * the left and smart chargers on the right (plan.md §1). The maps fill the
+ * screen; the load chart and the controls open from buttons. Every command
+ * goes to both sides on the same tick.
  */
 import { TICKS_PER_DAY, type Command, type FleetMode, type WorldSnapshot } from '../contracts';
 import type { District } from '../sim/district';
@@ -25,12 +26,13 @@ type SideMode = 'naive' | 'local';
 interface Side {
   readonly mode: SideMode;
   readonly title: string;
-  readonly subtitle: string;
   readonly color: string;
   district: District;
   readonly view: MapView;
+  readonly panel: HTMLElement;
   readonly stage: HTMLElement;
-  readonly stats: HTMLElement;
+  readonly state: HTMLElement;
+  readonly chips: HTMLElement;
   readonly banner: HTMLElement;
   bannerUntil: number;
   announced: Set<number>;
@@ -41,6 +43,17 @@ const SPEEDS = [2, 10, 30, 60] as const;
 /** Each run starts at 17:00 on day one, just before rickshaws start coming home. */
 const START_TICK = 5 * 60;
 
+const ICONS = {
+  play: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>',
+  pause: '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>',
+  chart:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13.5h12"/><path d="M3 10.5l3-3.5 3 2 4-5"/></svg>',
+  sliders:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 4.5h11M2.5 11.5h11"/><circle cx="6" cy="4.5" r="1.8" fill="#fff"/><circle cx="10.5" cy="11.5" r="1.8" fill="#fff"/></svg>',
+  restart:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 8a5.2 5.2 0 1 0 1.6-3.8"/><path d="M2.5 2.5v3h3"/></svg>',
+};
+
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -49,7 +62,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 };
 
 export function clockText(tick: number): { night: string; time: string } {
-  const minutes = ((((12 * 60 + tick) % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY);
+  const minutes = (((12 * 60 + tick) % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY;
   const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
   const mm = String(Math.floor(minutes % 60)).padStart(2, '0');
   return { night: `Night ${Math.floor(tick / TICKS_PER_DAY) + 1}`, time: `${hh}:${mm}` };
@@ -70,15 +83,24 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const app = el('div', 'app');
   root.replaceChildren(app);
 
-  // -------------------------------------------------------------- header
+  // -------------------------------------------------------------- top bar
   const top = el('div', 'top');
   const brand = el('div', 'brand');
-  brand.append(el('h1', undefined, 'RICKSHAWS'), el('span', undefined, `Battery-rickshaw charging in ${deps.map.name}`));
-  const play = el('button', 'btn primary', 'Pause');
+  brand.append(el('h1', undefined, 'RICKSHAWS'), el('span', undefined, `One night of battery-rickshaw charging in ${deps.map.name}`));
+
+  const clock = el('div', 'clock');
+  const clockTime = el('div', 't');
+  const clockNight = el('div', 'n');
+  clock.append(clockTime, clockNight);
+
+  const tools = el('div', 'tools');
+  const play = el('button', 'icon-btn play');
+  play.title = 'Play or pause (space)';
   play.dataset.action = 'play';
   const seg = el('div', 'seg');
   const speedButtons = SPEEDS.map((s) => {
-    const b = el('button', s === speed ? 'on' : '', `${s} min/s`);
+    const b = el('button', s === speed ? 'on' : '', `${s}×`);
+    b.title = `${s} simulated minutes per second`;
     b.addEventListener('click', () => {
       speed = s;
       speedButtons.forEach((x) => x.classList.toggle('on', x === b));
@@ -86,44 +108,43 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     return b;
   });
   seg.append(...speedButtons);
-  const clock = el('div', 'clock');
-  top.append(brand, clock, play, seg);
+  const iconButton = (icon: string, label: string, title: string): HTMLButtonElement => {
+    const b = el('button', 'icon-btn');
+    b.innerHTML = `${icon}<span>${label}</span>`;
+    b.title = title;
+    return b;
+  };
+  const restartBtn = iconButton(ICONS.restart, 'Restart', 'Restart tonight from 17:00 (R)');
+  const chartBtn = iconButton(ICONS.chart, 'Load graph', 'Show the load graph (G)');
+  const controlsBtn = iconButton(ICONS.sliders, 'Controls', 'Change the night (C)');
+  tools.append(play, seg, restartBtn, chartBtn, controlsBtn);
+  top.append(brand, clock, tools);
 
   // -------------------------------------------------------------- maps
   const maps = el('div', 'maps');
   const makeSide = (mode: SideMode, title: string, subtitle: string, color: string): Side => {
     const panel = el('section', 'panel');
     panel.dataset.mode = mode;
-    const header = el('header');
-    const dot = el('span', 'dot');
-    dot.style.background = color;
-    const titles = el('div', 'titles');
-    titles.append(el('h2', undefined, title), el('p', undefined, subtitle));
-    header.append(dot, titles);
     const stage = el('div', 'stage');
     const view = new MapView(deps.map, motion);
     stage.append(view.canvas);
+    const tag = el('div', 'tag glass');
+    tag.innerHTML = `<h2><i style="background:${color}"></i>${title}</h2><p>${subtitle}</p>`;
+    const state = el('div', 'state glass');
+    const chips = el('div', 'chips');
     const banner = el('div', 'banner');
-    const stats = el('div', 'stats');
-    const key = el('div', 'keyrow');
-    key.innerHTML = `
-      <span><i class="sw" style="background:${colors.charging}"></i>charging</span>
-      <span><i class="sw" style="border:1.4px solid ${colors.waiting}"></i>waiting</span>
-      <span><i class="sw" style="background:${colors.full}"></i>full</span>
-      <span><i class="sw" style="background:${colors.rickshaw};border-radius:50%"></i>rickshaw on the road</span>`;
-    const footer = el('div');
-    footer.append(key, stats);
-    panel.append(header, stage, footer, banner);
+    panel.append(stage, tag, state, chips, banner);
     maps.append(panel);
     return {
       mode,
       title,
-      subtitle,
       color,
       district: deps.makeDistrict(mode, seed),
       view,
+      panel,
       stage,
-      stats,
+      state,
+      chips,
       banner,
       bannerUntil: 0,
       announced: new Set(),
@@ -138,29 +159,35 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
       colors.local,
     ),
   ];
+  const vs = el('div', 'vs glass', 'Same night');
+  maps.append(vs);
 
-  // -------------------------------------------------------------- bottom
-  const bottom = el('div', 'bottom');
-  const chartCard = el('div', 'card');
-  const chartTitle = el('h3');
-  chartTitle.append('Load on each transformer tonight');
+  // -------------------------------------------------------------- load graph sheet
+  const sheet = el('div', 'sheet glass');
+  const sheetHead = el('header');
   const legend = el('span', 'legend');
   legend.innerHTML = `
-    <span><i style="border-color:${colors.naive}"></i>Ordinary T1</span>
-    <span><i class="d" style="border-color:${colors.naive}"></i>Ordinary T2</span>
-    <span><i style="border-color:${colors.local}"></i>Smart T1</span>
-    <span><i class="d" style="border-color:${colors.local}"></i>Smart T2</span>`;
-  chartTitle.append(legend);
+    <span><i style="border-color:${colors.naive}"></i>Ordinary · T1</span>
+    <span><i class="d" style="border-color:${colors.naive}"></i>Ordinary · T2</span>
+    <span><i style="border-color:${colors.local}"></i>Smart · T1</span>
+    <span><i class="d" style="border-color:${colors.local}"></i>Smart · T2</span>`;
+  const sheetClose = el('button', 'close', '✕');
+  sheetClose.title = 'Close';
+  sheetHead.append(el('h3', undefined, 'Load on each transformer tonight'), legend, sheetClose);
   const chartBox = el('div', 'chartbox');
   const chart = el('canvas');
   chartBox.append(chart);
-  chartCard.append(chartTitle, chartBox);
+  sheet.append(sheetHead, chartBox);
 
-  const actionsCard = el('div', 'card');
-  actionsCard.append(el('h3', undefined, 'Change the night (both sides)'));
+  // -------------------------------------------------------------- controls popover
+  const pop = el('div', 'pop glass');
+  const popHead = el('header');
+  const popClose = el('button', 'close', '✕');
+  popClose.title = 'Close';
+  popHead.append(el('h3', undefined, 'Change the night, on both sides'), popClose);
   const actions = el('div', 'actions');
   const action = (title: string, sub: string, cmd: string, onClick: (b: HTMLButtonElement) => void): HTMLButtonElement => {
-    const b = el('button', 'btn');
+    const b = el('button', 'act');
     b.dataset.cmd = cmd;
     b.append(el('b', undefined, title), el('span', undefined, sub));
     b.addEventListener('click', () => onClick(b));
@@ -170,12 +197,12 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const send = (command: Command): void => {
     for (const s of sides) s.district.apply(command);
   };
-  action('Heatwave', 'Homes use 30% more', 'setBaseLoadScale', (b) => {
+  const heatBtn = action('Heatwave', 'Homes use 30% more power', 'setBaseLoadScale', (b) => {
     heatwave = !heatwave;
     b.classList.toggle('on', heatwave);
     send({ kind: 'setBaseLoadScale', scale: heatwave ? 1.3 : 1 });
   });
-  action('Power cut', 'Grid off for one hour', 'powerCut', () => send({ kind: 'powerCut', ticks: 60 }));
+  action('Power cut', 'The grid goes off for an hour', 'powerCut', () => send({ kind: 'powerCut', ticks: 60 }));
   action('Stubborn chargers', '20% ignore the rule', 'stubbornChargers', () =>
     send({ kind: 'stubbornChargers', fraction: 0.2 }),
   );
@@ -183,16 +210,57 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     seed += 1;
     reset();
   });
+  const key = el('div', 'key');
+  key.innerHTML = `
+    <span><i class="sw" style="background:${colors.charging}"></i>Bay charging</span>
+    <span><i class="sw" style="border:1.5px solid ${colors.waiting}"></i>Bay waiting</span>
+    <span><i class="sw" style="background:${colors.full}"></i>Battery full</span>
+    <span><i class="sw" style="background:${colors.rickshaw};border-radius:50%"></i>Rickshaw driving</span>
+    <span><i class="sw" style="background:${colors.ok};border-radius:50%"></i>Transformer OK</span>
+    <span><i class="sw" style="background:${colors.hot};border-radius:50%"></i>Overloaded</span>`;
   const note = el(
     'div',
     'note',
-    `Map: ${deps.map.attribution}. The transformer heating and burst point are illustrative model values, not measurements.`,
+    `Roads: ${deps.map.attribution}. Buildings are drawn as simple boxes. Transformer heating and the burst point are illustrative model values, not measurements. Keys: space play/pause · G graph · C controls · R restart.`,
   );
-  actions.append(note);
-  actionsCard.append(actions);
-  bottom.append(chartCard, actionsCard);
+  pop.append(popHead, actions, key, note);
 
-  app.append(top, maps, bottom);
+  app.append(top, maps);
+  document.body.append(sheet, pop);
+
+  // -------------------------------------------------------------- open and close
+  const setOpen = (panel: HTMLElement, button: HTMLElement, open: boolean): void => {
+    panel.classList.toggle('open', open);
+    button.classList.toggle('active', open);
+  };
+  const toggleSheet = (): void => setOpen(sheet, chartBtn, !sheet.classList.contains('open'));
+  const togglePop = (): void => setOpen(pop, controlsBtn, !pop.classList.contains('open'));
+  chartBtn.addEventListener('click', toggleSheet);
+  controlsBtn.addEventListener('click', togglePop);
+  sheetClose.addEventListener('click', () => setOpen(sheet, chartBtn, false));
+  popClose.addEventListener('click', () => setOpen(pop, controlsBtn, false));
+
+  const setPlaying = (on: boolean): void => {
+    playing = on;
+    play.innerHTML = playing ? ICONS.pause : ICONS.play;
+  };
+  play.addEventListener('click', () => setPlaying(!playing));
+  restartBtn.addEventListener('click', () => reset());
+
+  const onKey = (e: KeyboardEvent): void => {
+    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      setPlaying(!playing);
+    } else if (e.key === 'g' || e.key === 'G') toggleSheet();
+    else if (e.key === 'c' || e.key === 'C') togglePop();
+    else if (e.key === 'r' || e.key === 'R') reset();
+    else if (e.key === 'Escape') {
+      setOpen(sheet, chartBtn, false);
+      setOpen(pop, controlsBtn, false);
+    } else if (e.key >= '1' && e.key <= '4') speedButtons[Number(e.key) - 1]?.click();
+  };
+  window.addEventListener('keydown', onKey);
 
   // -------------------------------------------------------------- behaviour
   function warmUp(): void {
@@ -203,7 +271,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
 
   function reset(): void {
     heatwave = false;
-    actions.querySelector('[data-cmd="setBaseLoadScale"]')?.classList.remove('on');
+    heatBtn.classList.remove('on');
     for (const s of sides) {
       s.district = deps.makeDistrict(s.mode, seed);
       s.view.reset();
@@ -215,11 +283,6 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     warmUp();
   }
 
-  play.addEventListener('click', () => {
-    playing = !playing;
-    play.textContent = playing ? 'Pause' : 'Play';
-  });
-
   const layout = (): void => {
     for (const s of sides) {
       const r = s.stage.getBoundingClientRect();
@@ -228,27 +291,46 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   };
   const observer = new ResizeObserver(layout);
   for (const s of sides) observer.observe(s.stage);
-  observer.observe(chartBox);
 
-  const statHtml = (k: string, v: string, small = ''): string =>
-    `<div class="stat"><div class="k">${k}</div><div class="v">${v}${small ? `<small>${small}</small>` : ''}</div></div>`;
+  const chip = (k: string, v: string, small = ''): string =>
+    `<div class="chip glass"><div class="k">${k}</div><div class="v">${v}${small ? `<small>${small}</small>` : ''}</div></div>`;
 
-  function updateStats(s: Side, zones: readonly WorldSnapshot[]): void {
+  function updateOverlays(s: Side, zones: readonly WorldSnapshot[]): void {
     const metrics = s.district.zones.map((z) => z.metrics());
-    const dark = zones.reduce(
-      (n, z, i) => n + (z.transformer.tripped || z.transformer.burst ? deps.map.transformers[i]!.buildings : 0),
-      0,
-    );
     const departures = metrics.reduce((n, m) => n + m.departures, 0);
     const ready = metrics.reduce((n, m) => n + m.readyDepartures, 0);
     const charging = metrics.reduce((n, m) => n + m.drawingNow, 0);
     const hottest = Math.max(...zones.map((z) => z.transformer.hotSpotC));
-    const bursts = metrics.reduce((n, m) => n + m.bursts, 0);
-    s.stats.innerHTML =
-      statHtml('Charging now', `${charging}`, 'rickshaws') +
-      statHtml('Hottest', `${Math.round(hottest)}°C`, bursts > 0 ? `${bursts} burst` : `bursts at ${deps.burstC}°C`) +
-      statHtml('Buildings dark', `${dark.toLocaleString()}`, `of ${deps.map.buildings.length.toLocaleString()}`) +
-      statHtml('Left charged', departures > 0 ? `${Math.round((100 * ready) / departures)}%` : '–', departures > 0 ? `of ${departures}` : 'none left yet');
+    const dark = zones.reduce(
+      (n, z, i) => n + (z.transformer.tripped || z.transformer.burst ? deps.map.transformers[i]!.buildings : 0),
+      0,
+    );
+    s.chips.innerHTML =
+      chip('Charging now', `${charging}`, 'rickshaws') +
+      chip('Hottest transformer', `${Math.round(hottest)}°C`) +
+      chip('Left fully charged', departures > 0 ? `${Math.round((100 * ready) / departures)}%` : '–', departures > 0 ? `of ${departures}` : 'at dawn');
+
+    // One plain-language state for the whole map.
+    const burst = zones.findIndex((z) => z.transformer.burst);
+    const out = zones.some((z) => z.transformer.tripped);
+    const overloaded = zones.some((z) => z.transformer.loadKw > z.transformer.ratingKw);
+    let text: string;
+    let cls = '';
+    if (burst >= 0) {
+      text = `${deps.map.transformers[burst]!.id} burst · ${dark.toLocaleString()} buildings dark`;
+      cls = 'bad';
+    } else if (out) {
+      text = 'Power cut';
+      cls = 'bad';
+    } else if (overloaded) {
+      text = 'Transformer overloaded';
+      cls = 'warn';
+    } else {
+      text = 'All lights on';
+    }
+    s.state.className = `state glass ${cls}`;
+    s.state.innerHTML = `<i></i>${text}`;
+    s.panel.classList.toggle('alert', burst >= 0);
   }
 
   function announce(s: Side, zones: readonly WorldSnapshot[], now: number): void {
@@ -259,10 +341,9 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
         const at = m.burstTick !== null ? clockText(m.burstTick).time : '';
         const t = deps.map.transformers[i]!;
         const rickshaws = z.chargers.filter((c) => c.state !== 'away' && c.state !== 'removed').length;
-        s.banner.textContent = `${t.id} burst at ${at}: ${t.buildings.toLocaleString()} buildings and ${rickshaws} rickshaws without power`;
-        s.banner.classList.remove('ok');
+        s.banner.innerHTML = `<b>${t.label} burst at ${at}</b>${t.buildings.toLocaleString()} buildings and ${rickshaws} rickshaws lose power for the rest of the night`;
         s.banner.classList.add('show');
-        s.bannerUntil = now + 6000;
+        s.bannerUntil = now + 5000;
       }
     });
     if (s.bannerUntil && now > s.bannerUntil) {
@@ -273,7 +354,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
 
   let last = performance.now();
   let raf = 0;
-  let statsAt = 0;
+  let overlaysAt = 0;
   const frame = (now: number): void => {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
@@ -287,24 +368,32 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     const tick = sides[0]!.district.tick;
     const time = tick + (playing ? carry : 0);
     const c = clockText(tick);
-    clock.innerHTML = `<small>${c.night}</small>${c.time}`;
+    clockTime.textContent = c.time;
+    clockNight.textContent = c.night;
 
+    const refresh = now - overlaysAt > 200;
+    const chartOpen = sheet.classList.contains('open');
     const series: Series[] = [];
     for (const s of sides) {
       const zones = s.district.zones.map((z) => z.snapshot());
       s.view.draw({ zones, time, now, burstC: deps.burstC });
       announce(s, zones, now);
-      if (now - statsAt > 200) updateStats(s, zones);
-      s.district.zones.forEach((z, i) =>
-        series.push({ label: `${s.title} T${i + 1}`, color: s.color, dashed: i === 1, samples: z.history() }),
-      );
+      if (refresh) updateOverlays(s, zones);
+      if (chartOpen) {
+        s.district.zones.forEach((z, i) =>
+          series.push({ label: `${s.title} T${i + 1}`, color: s.color, dashed: i === 1, samples: z.history() }),
+        );
+      }
     }
-    if (now - statsAt > 200) statsAt = now;
-    const box = chartBox.getBoundingClientRect();
-    drawChart(chart, Math.floor(box.width), Math.floor(box.height), time, series);
+    if (refresh) overlaysAt = now;
+    if (chartOpen) {
+      const box = chartBox.getBoundingClientRect();
+      drawChart(chart, Math.floor(box.width), Math.floor(box.height), time, series);
+    }
     raf = requestAnimationFrame(frame);
   };
 
+  setPlaying(true);
   warmUp();
   layout();
   raf = requestAnimationFrame(frame);
@@ -313,6 +402,9 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     destroy() {
       cancelAnimationFrame(raf);
       observer.disconnect();
+      window.removeEventListener('keydown', onKey);
+      sheet.remove();
+      pop.remove();
       style.remove();
     },
   };
