@@ -9,7 +9,7 @@ html,body{margin:0;height:100%;background:#0B1230;overflow:hidden;font-family:sy
 #haze{position:absolute;inset:0;background:linear-gradient(transparent 50%,rgba(76,83,153,.18) 72%,transparent 100%);pointer-events:none}
 #glow{position:absolute;inset:0;pointer-events:none;transition:opacity .4s 1s;
  background:radial-gradient(ellipse 70% 32% at 50% 76%,rgba(255,217,102,.16),rgba(255,217,102,.06) 55%,transparent 75%)}
-#logo{position:fixed;left:32px;top:28px;filter:drop-shadow(0 0 6px rgba(255,217,102,.7));transition:filter 2s}
+#logo{position:fixed;left:32px;top:28px;max-width:calc(100vw - 64px);height:auto;filter:drop-shadow(0 0 6px rgba(255,217,102,.7));transition:filter 2s}
 #logo rect{transition:fill 2s,stroke 2s;stroke:transparent;stroke-width:.8}
 .dark #logo{filter:none;transition:filter .2s 1.3s} .dark #logo rect{animation:lo .9s steps(1) var(--d,0s) forwards;transition:none}
 @keyframes lo{0%{fill:#FFD966;stroke:transparent}20%{fill:#05060F;stroke:rgba(158,163,214,.6)}38%{fill:#FFD966;stroke:transparent}55%{fill:#05060F;stroke:rgba(158,163,214,.6)}70%{fill:#FFD966;stroke:transparent}100%{fill:#05060F;stroke:rgba(158,163,214,.6)}}
@@ -242,13 +242,25 @@ function updateMeter(now){
 let capS=1;
 const pbox=poly=>{const n=poly.getAttribute('points').trim().split(/[\s,]+/).map(Number),xs=n.filter((_,i)=>i%2===0),ys=n.filter((_,i)=>i%2);const x=Math.min(...xs),y=Math.min(...ys);return{x,y,width:Math.max(...xs)-x,height:Math.max(...ys)-y}};
 function capPlace(g,w0,h0){   // caption is laid out at its final size so the text ends up crisp
- const bb=pbox(g.querySelector('polygon'));capS=clamp(Math.min(innerWidth*.38,500)/w0,1,2.2);
- cap.innerHTML=`<svg viewBox="${bb.x} ${bb.y} ${bb.width} ${bb.height}">${g.innerHTML}</svg>`;cap.querySelectorAll('rect').forEach(r=>r.classList.add('tail'));
+ const bb=pbox(g.querySelector('polygon'));capS=Math.min(clamp(Math.min(innerWidth*.38,500)/w0,1,2.2),(innerWidth-32)/w0);
+ cap.innerHTML=`<svg viewBox="${bb.x} ${bb.y} ${bb.width} ${bb.height}">${(g.querySelector('.fit')||g).innerHTML}</svg>`;cap.querySelectorAll('rect').forEach(r=>r.classList.add('tail'));
  cap.style.width=w0*capS+'px';cap.style.height=h0*capS+'px';return[(innerWidth-w0*capS)/2,innerHeight-h0*capS-Math.max(24,innerHeight*.05)]}
 function liftCaption(){
  const g=$('b2'),r=g.querySelector('polygon').getBoundingClientRect(),[x,y]=capPlace(g,r.width,r.height);
  cap.style.transition='none';cap.style.transform=`translate(${r.left}px,${r.top}px) scale(${1/capS})`;cap.style.opacity=1;cap.getBoundingClientRect();
  cap.style.transition='';cap.classList.add('lift');cap.style.transform=`translate(${x}px,${y}px) scale(1)`}
+/* ---------- speech bubbles stay inside the window, whatever its shape or the parallax ---------- */
+document.querySelectorAll('.bub').forEach(g=>{const f=document.createElementNS('http://www.w3.org/2000/svg','g');f.setAttribute('class','fit');while(g.firstChild)f.appendChild(g.firstChild);g.appendChild(f);const [ox,oy]=g.style.transformOrigin.split(' ').map(parseFloat);g.dataset.ox=ox;g.dataset.oy=oy});
+function fitBubbles(){
+ const M=16;
+ document.querySelectorAll('.bub').forEach(g=>{
+  const f=g.querySelector('.fit'),poly=f.querySelector('polygon'),m=poly.ownerSVGElement.getScreenCTM();if(!m||!m.a)return;
+  const b=pbox(poly),l=m.a*b.x+m.e,t=m.d*b.y+m.f,w0=m.a*b.width,h0=m.d*b.height;
+  const k=Math.min(1,(innerWidth-2*M)/w0,(innerHeight-2*M)/h0),w=w0*k,h=h0*k;
+  const L=Math.min(Math.max(l,M),innerWidth-M-w),T=Math.min(Math.max(t,M),innerHeight-M-h);
+  const tx=(L-m.e)/m.a-k*b.x,ty=(T-m.f)/m.d-k*b.y;
+  f.setAttribute('transform',`translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${k.toFixed(4)})`);
+  g.style.transformOrigin=`${(k*g.dataset.ox+tx).toFixed(1)}px ${(k*g.dataset.oy+ty).toFixed(1)}px`})}   // the pop-in grows from the moved bubble
 function captionTo(id){
  const g=$(id),bb=pbox(g.querySelector('polygon')),a=S.M5.a,[x,y]=capPlace(g,bb.width*a,bb.height*a);
  cap.style.transition='none';cap.style.transform=`translate(${x}px,${y}px)`;cap.querySelector('svg').classList.add('pop')}
@@ -286,13 +298,21 @@ function reset(){
 $('replay').onclick=restart;
 /* CONTINUE: fade to black, then open the simulation app (index.html sits next to this file in both dev and the built dist/). */
 const APP_URL='./index.html';
-$('down').onclick=()=>{dispatchEvent(new CustomEvent('trickle:continue'));$('fade').classList.add('on');setTimeout(()=>location.href=APP_URL,480)};
+let leaving=false;
+$('down').onclick=()=>{if(leaving)return;leaving=true;dispatchEvent(new CustomEvent('trickle:continue'));$('fade').classList.add('on');setTimeout(()=>location.href=APP_URL,480)};
 /* coming back with the browser Back button can restore this page from cache with the fade still on */
-addEventListener('pageshow',e=>{if(e.persisted)$('fade').classList.remove('on')});
-addEventListener('keydown',e=>{if(e.repeat)return;
- if(phase==='news'&&newsDone&&e.code==='KeyR'){e.preventDefault();restart();return}
- if(!['Space','Enter','ArrowRight'].includes(e.code))return;
- if(phase==='idle'){e.preventDefault();start()}else if(phase==='news'&&newsDone){e.preventDefault();$('down').click()}});
+addEventListener('pageshow',e=>{if(e.persisted){$('fade').classList.remove('on');leaving=false}});
+document.querySelectorAll('button').forEach(b=>b.addEventListener('mouseup',()=>b.blur()));
+/* Space, Enter or Right: start the drive, or on the headlines screen press CONTINUE. R replays.
+   The browser's own "Space/Enter clicks the focused button" is switched off, so a button
+   left focused by an earlier mouse click (Replay, the start arrow) can never be pressed by them. */
+const GO_KEYS=['Space','Enter','NumpadEnter','ArrowRight'];
+addEventListener('keydown',e=>{
+ if(e.code.endsWith('Enter')&&e.target.closest&&e.target.closest('a'))return;   // Enter on a headline card still opens it
+ if(GO_KEYS.includes(e.code)){e.preventDefault();if(e.repeat)return;
+  if(phase==='idle')start();else if(phase==='news'&&newsDone)$('down').click();return}
+ if(e.code==='KeyR'&&!e.repeat&&phase==='news'&&newsDone){e.preventDefault();restart()}});
+addEventListener('keyup',e=>{if(GO_KEYS.includes(e.code)&&!(e.target.closest&&e.target.closest('a')))e.preventDefault()});
 let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(phase==='wall'){sizeWall()}else if(phase!=='news')prep()},250)});
 
 function tick(now){
@@ -300,6 +320,7 @@ function tick(now){
  const kf=settling?.14:.06;cx+=(tx-cx)*kf;cy+=(ty-cy)*kf;bob+=.25;
  if(phase!=='wall'&&phase!=='news')for(const[el,d]of els)el.style.transform=`translate(${-cx*d*innerWidth}px,${-cy*d*innerHeight*.5}px)`;
  if(phase==='drive'||phase==='settle'||phase==='live'){
+  fitBubbles();
   const u=Math.min(1,(now-t0)/DUR);p=ease(u);
   const y=679+(u<1&&Math.sin(bob)>0?-3:0);rick.setAttribute('transform',`translate(${(START+(END-START)*p).toFixed(1)},${y}) scale(1.5)`);
   if(p>=B1)$('b1').classList.add('on');
