@@ -2,13 +2,45 @@
 
 _Written by `npm run experiment` (scripts/experiment.ts). Do not edit by hand (VALIDATION §2)._
 
-- **Commit:** `49df611`
+- **Commit:** `0f4adbe`
 - **Scenario:** `standard` (A normal night), 4320 ticks per run
 - **Seeds:** 1 to 10
 - **Warm-up:** the first 1440 ticks (one day) are excluded; 2 nights are measured
 - **Modes:** naive, stagger, local, central
 
 Peak is the highest one-tick load over the measured nights as a share of the rating, averaged over seeds. Per-night figures are averaged over the measured nights and then over seeds. Ready shares count rickshaws that left at or above `readyAtSoc` during the measured nights; near and far are the halves of the feeder. Lowest socket V is the lowest reading at any plugged-in charger while energised, over all seeds.
+
+## Headline: three systems, six scenarios, one table
+
+The Dhanmondi map: two transformers, 200 rickshaws, three simulated days from tick 0, seeds as above. Each scenario hits all three systems with the same events at the same moment. **Ordinary**: charge flat out. **App-controlled**: a utility server schedules every charger over the mobile network; without it, chargers charge flat out. **Smart (ours)**: each charger senses only its own socket voltage.
+
+| Scenario | System | Runs with a burst | Median first burst | Worst peak load | Hottest | Overloaded min / night | Building-hours dark | Left fully charged | Far end fully charged | Avg battery at departure | Not charged / night |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Normal night** | Ordinary | 10 of 10 | night 1, 23:31 | 136% | 140 °C | 292 | 18,705 | 50.2% | 50.2% | 68.8% | 99.6 of 200 |
+|  | App-controlled | 0 of 10 | – | 97% | 105 °C | 0 | 0 | 99.9% | 99.9% | 100.0% | 0.2 of 200 |
+|  | Smart (ours) | 0 of 10 | – | 110% | 115 °C | 216 | 0 | 96.4% | 95.6% | 99.1% | 7.1 of 200 |
+| **Network down from 21:00** | Ordinary | 10 of 10 | night 1, 23:31 | 136% | 140 °C | 292 | 18,705 | 50.2% | 50.2% | 68.8% | 99.6 of 200 |
+|  | App-controlled | 10 of 10 | night 1, 23:31 | 136% | 140 °C | 293 | 18,704 | 50.1% | 50.1% | 68.8% | 99.7 of 200 |
+|  | Smart (ours) | 0 of 10 | – | 110% | 115 °C | 216 | 0 | 96.4% | 95.6% | 99.1% | 7.1 of 200 |
+| **Heatwave (homes use 30% more)** | Ordinary | 10 of 10 | night 1, 22:44 | 144% | 141 °C | 73 | 48,226 | 0.1% | 0.0% | 35.5% | 199.9 of 200 |
+|  | App-controlled | 0 of 10 | – | 98% | 105 °C | 0 | 0 | 99.9% | 99.9% | 99.9% | 0.2 of 200 |
+|  | Smart (ours) | 0 of 10 | – | 121% | 130 °C | 574 | 0 | 94.8% | 93.5% | 98.7% | 10.5 of 200 |
+| **1-hour power cut at 22:00 (towers fail after 30 min)** | Ordinary | 10 of 10 | night 1, 00:42 | 136% | 140 °C | 296 | 19,101 | 50.3% | 50.2% | 69.7% | 99.5 of 200 |
+|  | App-controlled | 0 of 10 | – | 136% | 105 °C | 13 | 789 | 99.8% | 99.8% | 100.0% | 0.3 of 200 |
+|  | Smart (ours) | 0 of 10 | – | 113% | 102 °C | 48 | 789 | 90.3% | 89.5% | 97.6% | 19.4 of 200 |
+| **20% of chargers ignore the rule** | Ordinary | 10 of 10 | night 1, 23:31 | 136% | 140 °C | 292 | 18,705 | 50.2% | 50.2% | 68.8% | 99.6 of 200 |
+|  | App-controlled | 0 of 10 | – | 100% | 104 °C | 0 | 0 | 99.9% | 99.9% | 100.0% | 0.2 of 200 |
+|  | Smart (ours) | 0 of 10 | – | 113% | 117 °C | 307 | 0 | 96.9% | 96.1% | 99.2% | 6.2 of 200 |
+| **Worst night: heatwave, 20% rule-breakers, network down from 21:00** | Ordinary | 10 of 10 | night 1, 22:44 | 144% | 141 °C | 73 | 48,226 | 0.1% | 0.0% | 35.5% | 199.9 of 200 |
+|  | App-controlled | 10 of 10 | night 1, 22:44 | 144% | 140 °C | 70 | 48,219 | 0.1% | 0.0% | 35.4% | 199.9 of 200 |
+|  | Smart (ours) | 0 of 10 | – | 123% | 131 °C | 600 | 0 | 95.4% | 94.3% | 98.9% | 9.2 of 200 |
+
+- **Runs with a burst:** runs (of the seeds) in which a transformer overheated past its burst point. A burst transformer stays dark for the rest of the run.
+- **Worst peak load:** the highest one-minute load on either transformer, as a share of its rating, over all runs.
+- **Overloaded min / night:** minutes per night any transformer spent above its rating (above the rating is not the same as bursting; heating is gradual).
+- **Building-hours dark:** buildings without power times hours, over the three days.
+- **Left fully charged:** rickshaws that left at 90% or more. **Not charged / night:** those that left below 90%.
+- Transformer heating and the burst point are illustrative model values (plan.md §3.3). Tower backup during power cuts is an assumed 30 minutes.
 
 ## Standard experiment
 
