@@ -5,7 +5,7 @@
  * is drawn over it each frame from the zones' snapshots.
  */
 import type { WorldSnapshot } from '../contracts';
-import { bayOf, type MapData, type Point } from '../map';
+import { bayOf, chargerOf, type MapData, type Point } from '../map';
 import { Motion } from './motion';
 import { colors, font, heatColor, loadColor } from './theme';
 
@@ -47,6 +47,8 @@ export class MapView {
   private readonly wasAway = new Map<number, boolean>();
   private readonly burstSeenAt = new Map<number, number>();
   private linkCutAt: number | null = null;
+  /** The charger whose socket view is open, highlighted on the map. */
+  selected: { zone: number; id: number } | null = null;
   /** The control centre's position: the road node nearest the middle of the garages. */
   private readonly hub: Point;
 
@@ -325,7 +327,7 @@ export class MapView {
       ctx.stroke();
     }
     // Label.
-    const label = up ? 'Control centre' : 'No connection';
+    const label = up ? 'Utility server' : 'No signal';
     ctx.font = `600 10.5px ${font}`;
     const w = ctx.measureText(label).width + 14;
     roundRect(ctx, hx - w / 2, hy - 36, w, 17, 8.5);
@@ -468,6 +470,37 @@ export class MapView {
         }
       }
     });
+    // The bay whose socket view is open.
+    if (this.selected) {
+      const { garage, bay } = bayOf(this.map, this.selected.zone, this.selected.id);
+      const g = this.map.garages[garage];
+      if (g) {
+        const box = this.garageBox(g.at);
+        const x = box.x + 4 + (bay % GRID_COLS) * (CELL + GAP);
+        const y = box.y + 4 + Math.floor(bay / GRID_COLS) * (CELL + GAP);
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220);
+        ctx.strokeStyle = colors.ink;
+        ctx.lineWidth = 1.6;
+        ctx.strokeRect(x - 2.5, y - 2.5, CELL + 5, CELL + 5);
+        ctx.strokeStyle = `rgba(29,38,51,${0.25 + 0.35 * pulse})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - 5, y - 5, CELL + 10, CELL + 10);
+      }
+    }
+  }
+
+  /** The bay under a point in CSS pixels, if any. Generous by a pixel so small bays are easy to hit. */
+  hitBay(px: number, py: number): { zone: number; id: number } | null {
+    for (let gi = 0; gi < this.map.garages.length; gi++) {
+      const g = this.map.garages[gi]!;
+      const box = this.garageBox(g.at);
+      if (px < box.x || py < box.y || px > box.x + box.w || py > box.y + box.h) continue;
+      const col = Math.min(GRID_COLS - 1, Math.max(0, Math.floor((px - box.x - 4 + GAP / 2) / (CELL + GAP))));
+      const row = Math.max(0, Math.floor((py - box.y - 4 + GAP / 2) / (CELL + GAP)));
+      const bay = Math.min(g.bays - 1, row * GRID_COLS + col);
+      return chargerOf(this.map, gi, bay);
+    }
+    return null;
   }
 
   private drawTransformers(frame: Frame): void {

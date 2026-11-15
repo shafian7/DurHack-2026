@@ -3,9 +3,9 @@
  * mode, over seeds, from tick 0 (the demo is the first night). Reports bursts,
  * how long buildings were dark, temperatures and ready shares.
  */
-import type { FleetMode } from '../src/contracts';
+import type { FleetMode, ScriptedCommand } from '../src/contracts';
 import { TICKS_PER_DAY } from '../src/contracts';
-import { dhanmondi, dhanmondiDistrict } from '../src/map';
+import { dhanmondi, dhanmondiDistrict, networkOutageForPowerCut } from '../src/map';
 import { createDistrict, DISTRICT_THERMAL } from '../src/sim/district';
 import { naivePolicy } from '../src/policies/naive';
 import { staggerPolicy } from '../src/policies/stagger';
@@ -14,11 +14,13 @@ import { createScheduler } from '../src/policies/scheduler';
 
 /** The demo's automatic cut of the central server's link: 21:00 on night one. */
 export const DEMO_CUT_TICK = 9 * 60;
+/** A grid power cut at 22:00 on night one, for the network-linked scenario. */
+export const POWER_CUT_TICK = 10 * 60;
 
 export interface DistrictRun {
   readonly mode: FleetMode;
-  /** Tick the central server's link was cut, or null. */
-  readonly cutTick: number | null;
+  /** Commands applied during the run, in tick order. */
+  readonly script: readonly ScriptedCommand[];
   readonly seed: number;
   readonly bursts: number;
   readonly firstBurstTick: number | null;
@@ -30,14 +32,21 @@ export interface DistrictRun {
   readonly readyShareFar: number | null;
 }
 
-export function runDistrict(mode: FleetMode, seed: number, ticks = 3 * TICKS_PER_DAY, cutTick: number | null = null): DistrictRun {
+export function runDistrict(
+  mode: FleetMode,
+  seed: number,
+  ticks = 3 * TICKS_PER_DAY,
+  script: readonly ScriptedCommand[] = [],
+): DistrictRun {
+  const ordered = [...script].sort((a, b) => a.atTick - b.atTick);
+  let next = 0;
   const d = createDistrict(dhanmondiDistrict(seed), mode, () =>
     mode === 'central'
       ? { scheduler: createScheduler() }
       : { policy: mode === 'naive' ? naivePolicy : mode === 'stagger' ? staggerPolicy : localPolicy },
   );
   for (let t = 0; t < ticks; t++) {
-    if (t === cutTick) d.apply({ kind: 'killScheduler' });
+    while (next < ordered.length && ordered[next]!.atTick <= t) d.apply(ordered[next++]!.command);
     d.step();
   }
   const ms = d.zones.map((z) => z.metrics());
@@ -47,7 +56,7 @@ export function runDistrict(mode: FleetMode, seed: number, ticks = 3 * TICKS_PER
   const burstTicks = ms.map((m) => m.burstTick).filter((t): t is number => t !== null);
   return {
     mode,
-    cutTick,
+    script: ordered,
     seed,
     bursts: ms.reduce((n, m) => n + m.bursts, 0),
     firstBurstTick: burstTicks.length ? Math.min(...burstTicks) : null,
@@ -67,14 +76,22 @@ const clock = (tick: number): string => {
 };
 
 export function districtSection(seeds: readonly number[]): string {
-  const rows: { label: string; mode: FleetMode; cut: number | null }[] = [
-    { label: 'naive', mode: 'naive', cut: null },
-    { label: 'stagger', mode: 'stagger', cut: null },
-    { label: 'local (smart chargers)', mode: 'local', cut: null },
-    { label: 'central, link up all night', mode: 'central', cut: null },
-    { label: 'central, link cut at 21:00 (the demo)', mode: 'central', cut: DEMO_CUT_TICK },
+  const kill: ScriptedCommand[] = [{ atTick: DEMO_CUT_TICK, command: { kind: 'killScheduler' } }];
+  const cut: ScriptedCommand[] = [
+    { atTick: POWER_CUT_TICK, command: { kind: 'powerCut', ticks: 60 } },
+    ...networkOutageForPowerCut(POWER_CUT_TICK, 60),
   ];
-  const runs = rows.map((row) => seeds.map((seed) => runDistrict(row.mode, seed, 3 * TICKS_PER_DAY, row.cut)));
+  const rows: { label: string; mode: FleetMode; script: ScriptedCommand[] }[] = [
+    { label: 'naive (ordinary chargers)', mode: 'naive', script: [] },
+    { label: 'stagger', mode: 'stagger', script: [] },
+    { label: 'local (smart chargers)', mode: 'local', script: [] },
+    { label: 'central (app-controlled), network up all night', mode: 'central', script: [] },
+    { label: 'central, network down from 21:00 (the demo)', mode: 'central', script: kill },
+    { label: 'naive, 1-hour power cut at 22:00', mode: 'naive', script: cut },
+    { label: 'local, 1-hour power cut at 22:00', mode: 'local', script: cut },
+    { label: 'central, 1-hour power cut at 22:00, towers fail after 30 min', mode: 'central', script: cut },
+  ];
+  const runs = rows.map((row) => seeds.map((seed) => runDistrict(row.mode, seed, 3 * TICKS_PER_DAY, row.script)));
   const lines = [
     '## Dhanmondi district: two transformers, three days from tick 0 (plan.md §3.7)',
     '',

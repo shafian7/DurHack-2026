@@ -131,4 +131,16 @@ describe('localPolicy', () => {
     expect(localPolicy.decide(o, m1, createRng(2))).toBe('on');
     expect(localPolicy.decide(o, m2, createRng(2))).toBe('off');
   });
+
+  it('a power cut clears the back-off count, so old congestion does not stretch the restart', () => {
+    const rng = createRng(6);
+    const m = plugged(0.5, rng);
+    drive(m, rng, 30, () => 229, 0.5);
+    m.backoffs = 4;
+    localPolicy.decide(obs({ voltage: 0, soc: 0.5, pluggedTicks: 40 }), m, rng);
+    localPolicy.decide(obs({ voltage: 229, soc: 0.5, pluggedTicks: 41 }), m, rng);
+    expect(m.backoffs).toBe(0);
+    expect(m.waitUntil - m.ticks).toBeLessThanOrEqual(LOCAL_PARAMS.outageRestartMaxTicks);
+  });
 });
+

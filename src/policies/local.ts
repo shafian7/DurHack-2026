@@ -48,6 +48,15 @@ export interface LocalParams {
   readonly emptyWaitShare: number;
   /** Rule 5: after a power cut, restart uniformly over [1, this]. */
   readonly outageRestartMaxTicks: number;
+  /** Rule 5: a power cut clears the back-off count, so old congestion does not stretch new waits. */
+  readonly outageResetsBackoff: boolean;
+  /**
+   * Rule 4b: while waiting, if the sag is at least this far below the limit
+   * (plenty of room), start early with probability earlyStartChance per tick.
+   * Spare voltage invites chargers on without everyone starting together.
+   */
+  readonly earlyStartMargin: number;
+  readonly earlyStartChance: number;
   /**
    * Rule 3b: extra sag tolerated by a charger that has drawn little since it
    * plugged in, at a duty of 0. A charger far down the feeder sees more sag
@@ -72,7 +81,10 @@ export const LOCAL_PARAMS: LocalParams = Object.freeze({
   backoffMaxDoublings: 4,
   steadyTicks: 30,
   emptyWaitShare: 0.3,
-  outageRestartMaxTicks: 40,
+  outageRestartMaxTicks: 15,
+  outageResetsBackoff: true,
+  earlyStartMargin: 0.03,
+  earlyStartChance: 0.05,
   deprivationBoost: 0.075,
   dutyMinTicks: 60,
   referenceFloorShare: 0.9,
@@ -148,6 +160,7 @@ export function createLocalPolicy(p: LocalParams = LOCAL_PARAMS): ChargerPolicy<
       }
       if (memory.inOutage) {
         memory.inOutage = false;
+        if (p.outageResetsBackoff) memory.backoffs = 0;
         memory.waitUntil = now + 1 + rng.int(p.outageRestartMaxTicks);
         return 'off';
       }
@@ -178,7 +191,10 @@ export function createLocalPolicy(p: LocalParams = LOCAL_PARAMS): ChargerPolicy<
       }
 
       // Rules 1 and 4: wait out the delay, then start only with room to spare.
-      if (now < memory.waitUntil) return 'off';
+      if (now < memory.waitUntil) {
+        if (p.earlyStartChance > 0 && sag < limit - p.earlyStartMargin && rng.next() < p.earlyStartChance) return 'on';
+        return 'off';
+      }
       if (sag < limit - p.restartMargin) return 'on';
       memory.waitUntil = now + backoffWait(memory, obs.soc, p, rng);
       return 'off';

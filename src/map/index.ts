@@ -8,6 +8,7 @@ import type { MapData, Point } from './types';
 
 export type { MapData, Point } from './types';
 export const dhanmondi = data as unknown as MapData;
+export { networkOutageForPowerCut, TOWER_BACKUP_TICKS, TOWER_RESTART_TICKS } from './network';
 
 /**
  * Transformer ratings and household shares (plan.md §3.1). Household demand
@@ -42,6 +43,14 @@ export function bayOf(map: MapData, zone: number, chargerId: number): { garage: 
     left -= garage.bays;
   }
   return { garage: -1, bay: -1 };
+}
+
+/** The charger id, within its zone, that sits in a garage's bay. The inverse of bayOf. */
+export function chargerOf(map: MapData, garage: number, bay: number): { zone: number; id: number } {
+  const g = map.garages[garage]!;
+  let id = bay;
+  for (let k = 0; k < garage; k++) if (map.garages[k]!.transformer === g.transformer) id += map.garages[k]!.bays;
+  return { zone: g.transformer, id };
 }
 
 export const lerp = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];

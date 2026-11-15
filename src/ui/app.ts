@@ -6,9 +6,10 @@
  */
 import { TICKS_PER_DAY, type Command, type FleetMode, type WorldSnapshot } from '../contracts';
 import type { District } from '../sim/district';
-import type { MapData } from '../map';
+import { networkOutageForPowerCut, TOWER_BACKUP_TICKS, type MapData } from '../map';
 import { drawChart, type Series } from './chart';
 import { MapView } from './mapView';
+import { SOCKET_WINDOW, SocketView, type SocketSample } from './socketView';
 import { Motion } from './motion';
 import { css } from './styles';
 import { colors } from './theme';
@@ -19,6 +20,8 @@ export interface UiDeps {
   readonly makeDistrict: (mode: FleetMode, seed: number) => District;
   /** Hot-spot temperature at which a transformer bursts, for the gauges. */
   readonly burstC: number;
+  /** The smart rule's sag tolerance at a battery level (battery part only), for the socket view. */
+  readonly tolerance?: (soc: number) => number;
 }
 
 type SideMode = 'central' | 'local';
@@ -34,6 +37,8 @@ interface Side {
   readonly state: HTMLElement;
   readonly chips: HTMLElement;
   readonly banner: HTMLElement;
+  readonly socket: SocketView;
+  trace: SocketSample[];
   bannerUntil: number;
   announced: Set<number>;
 }
@@ -41,7 +46,22 @@ interface Side {
 /** Simulated minutes per real second. */
 const SPEEDS = [2, 10, 30, 60] as const;
 /** Each run starts at 17:00 on day one, just before rickshaws start coming home. */
-const START_TICK = 5 * 60;
+const DEFAULT_START_TICK = 5 * 60;
+
+/**
+ * Where tonight starts. `?at=22:30` in the address starts the night at that
+ * time, so a presenter can open the page just before the moment they want to
+ * show. Hours before noon mean the next morning.
+ */
+export function startTickFrom(search: string): number {
+  const m = /[?&]at=(\d{1,2})(?::(\d{2}))?/.exec(search);
+  if (!m) return DEFAULT_START_TICK;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (h > 23 || min > 59) return DEFAULT_START_TICK;
+  const since = (((h - 12) % 24) + 24) % 24;
+  return Math.max(DEFAULT_START_TICK, since * 60 + min);
+}
 /** The automatic cut, at 21:00 on night one, while rickshaws are still arriving. */
 const AUTO_CUT_TICK = 9 * 60;
 
@@ -81,6 +101,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
 
   const motion = new Motion(deps.map);
   let seed = 1;
+  const START_TICK = startTickFrom(typeof location === 'undefined' ? '' : location.search);
   let speed: number = SPEEDS[1];
   let playing = true;
   let heatwave = false;
@@ -91,6 +112,10 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   let autoCut = true;
   /** The automatic cut happens at most once per run, so a restored link stays up. */
   let autoCutDone = false;
+  /** The charger whose socket view is open, the same id on both maps. */
+  let watch: { zone: number; id: number } | null = null;
+  /** Network outages caused by grid power cuts, waiting for their tick. */
+  let networkEvents: { atTick: number; up: boolean }[] = [];
 
   const app = el('div', 'app');
   root.replaceChildren(app);
@@ -126,7 +151,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     b.title = title;
     return b;
   };
-  const cutBtn = iconButton(ICONS.cut, 'Cut the connection', 'Cut the data link to the central server (X)');
+  const cutBtn = iconButton(ICONS.cut, 'Network outage', 'Take the mobile network down, so the utility server cannot reach its chargers (X)');
   cutBtn.classList.add('cut');
   cutBtn.dataset.cmd = 'killScheduler';
   const restartBtn = iconButton(ICONS.restart, 'Restart', 'Restart tonight from 17:00 (R)');
@@ -148,8 +173,18 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     const state = el('div', 'state glass');
     const chips = el('div', 'chips');
     const banner = el('div', 'banner');
-    panel.append(stage, tag, state, chips, banner);
+    const socket = new SocketView(() => select(null));
+    panel.append(stage, tag, state, chips, banner, socket.el);
     maps.append(panel);
+    stage.addEventListener('click', (e) => {
+      const r = stage.getBoundingClientRect();
+      const hit = view.hitBay(e.clientX - r.left, e.clientY - r.top);
+      if (hit) select(hit);
+    });
+    stage.addEventListener('mousemove', (e) => {
+      const r = stage.getBoundingClientRect();
+      stage.style.cursor = view.hitBay(e.clientX - r.left, e.clientY - r.top) ? 'pointer' : '';
+    });
     return {
       mode,
       title,
@@ -161,6 +196,8 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
       state,
       chips,
       banner,
+      socket,
+      trace: [],
       bannerUntil: 0,
       announced: new Set(),
     };
@@ -168,8 +205,8 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const sides: Side[] = [
     makeSide(
       'central',
-      'Connected chargers',
-      'A central server switches every charger over a data link. If the link drops, chargers charge flat out.',
+      'App-controlled chargers',
+      'A utility server tells each charger when to draw, over the mobile network. Without instructions, chargers charge flat out.',
       colors.central,
     ),
     makeSide(
@@ -182,13 +219,64 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
   const vs = el('div', 'vs glass', 'Same night');
   maps.append(vs);
 
+  // -------------------------------------------------------------- socket view
+  function select(target: { zone: number; id: number } | null): void {
+    watch = target;
+    for (const s of sides) {
+      s.view.selected = target;
+      s.trace = [];
+      s.socket.show(target !== null);
+    }
+    if (target) recordSockets();
+  }
+  function recordSockets(): void {
+    if (!watch) return;
+    for (const s of sides) {
+      const zone = s.district.zones[watch.zone];
+      if (!zone) continue;
+      const snap = zone.snapshot();
+      const c = snap.chargers[watch.id];
+      if (!c) continue;
+      s.trace.push({ tick: snap.tick, volts: c.voltage, state: c.state, soc: c.soc, online: snap.schedulerAlive });
+      if (s.trace.length > SOCKET_WINDOW + 5) s.trace.splice(0, s.trace.length - SOCKET_WINDOW - 5);
+    }
+  }
+  function updateSocket(s: Side, zones: readonly WorldSnapshot[]): void {
+    if (!watch) return;
+    const map = deps.map;
+    const garages = map.garages.filter((g) => g.transformer === watch!.zone);
+    let id = watch.id;
+    let g = garages[0]!;
+    for (const x of garages) {
+      if (id < x.bays) {
+        g = x;
+        break;
+      }
+      id -= x.bays;
+    }
+    const z = zones[watch.zone]!;
+    s.socket.update(
+      {
+        mode: s.mode,
+        garage: g.id,
+        bay: id,
+        transformer: map.transformers[watch.zone]!.label,
+        wireMetres: g.wireMetres,
+        nominalVolts: 230,
+        ...(s.mode === 'local' && deps.tolerance ? { tolerance: deps.tolerance } : {}),
+        powerOut: z.transformer.tripped || z.transformer.burst,
+      },
+      s.trace,
+    );
+  }
+
   // -------------------------------------------------------------- load graph sheet
   const sheet = el('div', 'sheet');
   const sheetHead = el('header');
   const legend = el('span', 'legend');
   legend.innerHTML = `
-    <span><i style="border-color:${colors.central}"></i>Connected · T1</span>
-    <span><i class="d" style="border-color:${colors.central}"></i>Connected · T2</span>
+    <span><i style="border-color:${colors.central}"></i>App-controlled · T1</span>
+    <span><i class="d" style="border-color:${colors.central}"></i>App-controlled · T2</span>
     <span><i style="border-color:${colors.local}"></i>Smart · T1</span>
     <span><i class="d" style="border-color:${colors.local}"></i>Smart · T2</span>`;
   const sheetClose = el('button', 'close', '✕');
@@ -222,11 +310,17 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     b.classList.toggle('on', heatwave);
     send({ kind: 'setBaseLoadScale', scale: heatwave ? 1.3 : 1 });
   });
-  action('Power cut', 'The grid goes off for an hour', 'powerCut', () => send({ kind: 'powerCut', ticks: 60 }));
+  action('Power cut', 'Grid off for an hour; towers fail after 30 min', 'powerCut', () => {
+    const at = sides[0]!.district.tick;
+    send({ kind: 'powerCut', ticks: 60 });
+    for (const e of networkOutageForPowerCut(at, 60)) {
+      networkEvents.push({ atTick: e.atTick, up: e.command.kind === 'reviveScheduler' });
+    }
+  });
   action('Stubborn chargers', '20% ignore the rule', 'stubbornChargers', () =>
     send({ kind: 'stubbornChargers', fraction: 0.2 }),
   );
-  const autoBtn = action('Auto-cut at 21:00', 'Link drops by itself', 'autoCut', (b) => {
+  const autoBtn = action('Outage at 21:00', 'Network drops by itself', 'autoCut', (b) => {
     autoCut = !autoCut;
     b.classList.toggle('on', autoCut);
   });
@@ -243,12 +337,12 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     <span><i class="sw" style="background:${colors.rickshaw};border-radius:50%"></i>Rickshaw driving</span>
     <span><i class="sw" style="background:${colors.ok};border-radius:50%"></i>Transformer OK</span>
     <span><i class="sw" style="background:${colors.hot};border-radius:50%"></i>Overloaded</span>
-    <span><i class="sw" style="background:${colors.central}"></i>Control centre</span>
-    <span><i class="sw" style="background:${colors.signal};border-radius:50%;width:6px;height:6px"></i>Data link</span>`;
+    <span><i class="sw" style="background:${colors.central}"></i>Utility server</span>
+    <span><i class="sw" style="background:${colors.signal};border-radius:50%;width:6px;height:6px"></i>Mobile data link</span>`;
   const note = el(
     'div',
     'note',
-    `Roads: ${deps.map.attribution}. Buildings are drawn as simple boxes. Transformer heating and the burst point are illustrative model values, not measurements. Keys: space play/pause · X cut or restore the link · G graph · C controls · R restart.`,
+    `Roads: ${deps.map.attribution}. Buildings are drawn as simple boxes. Transformer heating and the burst point are illustrative model values, not measurements. Towers lasting ${TOWER_BACKUP_TICKS} minutes on backup in a power cut is a model assumption. Keys: space play/pause · X network outage · G graph · C controls · R restart.`,
   );
   pop.append(popHead, actions, key, note);
 
@@ -279,21 +373,27 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     s.banner.className = `banner show ${tone}`;
     s.bannerUntil = performance.now() + ms;
   };
-  const setLink = (up: boolean): void => {
+  /** Why the network changed, for the wording of the announcements. */
+  type Reason = 'manual' | 'scheduled' | 'tower';
+  const setLink = (up: boolean, reason: Reason = 'manual'): void => {
     if (up === linkUp) return;
     linkUp = up;
     const command: Command = up ? { kind: 'reviveScheduler' } : { kind: 'killScheduler' };
     send(command);
     cutBtn.classList.toggle('done', !up);
-    cutBtn.innerHTML = up ? `${ICONS.cut}<span>Cut the connection</span>` : `${ICONS.link}<span>Restore the connection</span>`;
+    cutBtn.innerHTML = up ? `${ICONS.cut}<span>Network outage</span>` : `${ICONS.link}<span>Restore network</span>`;
     cutBtn.dataset.cmd = up ? 'killScheduler' : 'reviveScheduler';
     const at = clockText(sides[0]!.district.tick).time;
-    const [connected, smart] = sides as [Side, Side];
+    const [app, smart] = sides as [Side, Side];
     if (!up) {
-      showBanner(connected, `<b>Connection lost at ${at}</b>No instructions reach the garages, so every charger falls back to charging flat out`, 'dark', 4500);
-      showBanner(smart, '<b>Nothing to cut</b>These chargers never had a server or a link', 'ok', 3500);
+      const why =
+        reason === 'tower'
+          ? 'The grid has been off too long and the mobile towers have run out of backup power.'
+          : 'The utility server can no longer reach the garages.';
+      showBanner(app, `<b>Mobile network down at ${at}</b>${why} Without instructions, every charger falls back to charging flat out.`, 'dark', 5000);
+      showBanner(smart, '<b>Nothing to lose</b>These chargers never used the network', 'ok', 3500);
     } else {
-      showBanner(connected, `<b>Connection restored at ${at}</b>The server is scheduling chargers again`, 'ok', 3000);
+      showBanner(app, `<b>Network back at ${at}</b>The utility server is scheduling chargers again`, 'ok', 3000);
     }
   };
   cutBtn.addEventListener('click', () => setLink(!linkUp));
@@ -309,6 +409,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     else if (e.key === 'r' || e.key === 'R') reset();
     else if (e.key === 'x' || e.key === 'X') setLink(!linkUp);
     else if (e.key === 'Escape') {
+      select(null);
       setOpen(sheet, chartBtn, false);
       setOpen(pop, controlsBtn, false);
     } else if (e.key >= '1' && e.key <= '4') speedButtons[Number(e.key) - 1]?.click();
@@ -327,8 +428,10 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
     heatBtn.classList.remove('on');
     linkUp = true;
     autoCutDone = false;
+    networkEvents = [];
+    for (const s of sides) s.trace = [];
     cutBtn.classList.remove('done');
-    cutBtn.innerHTML = `${ICONS.cut}<span>Cut the connection</span>`;
+    cutBtn.innerHTML = `${ICONS.cut}<span>Network outage</span>`;
     cutBtn.dataset.cmd = 'killScheduler';
     for (const s of sides) {
       s.district = deps.makeDistrict(s.mode, seed);
@@ -382,13 +485,13 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
       text = 'Power cut';
       cls = 'bad';
     } else if (lost) {
-      text = overloaded ? 'No connection · transformer overloaded' : 'No connection · charging flat out';
+      text = overloaded ? 'No network · transformer overloaded' : 'No network · charging flat out';
       cls = 'bad';
     } else if (overloaded) {
       text = 'Transformer overloaded';
       cls = 'warn';
     } else {
-      text = s.mode === 'central' ? 'Connected · server in control' : 'All lights on · no link needed';
+      text = s.mode === 'central' ? 'Online · server in control' : 'All lights on · no network needed';
     }
     s.state.className = `state glass ${cls}`;
     s.state.innerHTML = `<i></i>${text}`;
@@ -428,11 +531,18 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
       let steps = Math.floor(carry);
       carry -= steps;
       steps = Math.min(steps, 120);
-      for (let i = 0; i < steps; i++) for (const s of sides) s.district.step();
+      for (let i = 0; i < steps; i++) {
+        // Network changes caused by a power cut land on their exact tick.
+        const now = sides[0]!.district.tick;
+        for (const e of networkEvents.filter((x) => x.atTick <= now)) setLink(e.up, 'tower');
+        networkEvents = networkEvents.filter((x) => x.atTick > now);
+        for (const s of sides) s.district.step();
+        recordSockets();
+      }
     }
     if (autoCut && !autoCutDone && sides[0]!.district.tick >= AUTO_CUT_TICK) {
       autoCutDone = true;
-      setLink(false);
+      setLink(false, 'scheduled');
     }
     const tick = sides[0]!.district.tick;
     const time = tick + (playing ? carry : 0);
@@ -449,6 +559,7 @@ export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void 
       s.view.draw({ zones, time, now, burstC: deps.burstC, link });
       announce(s, zones, now);
       if (refresh) updateOverlays(s, zones);
+      if (watch) updateSocket(s, zones);
       if (chartOpen) {
         s.district.zones.forEach((z, i) =>
           series.push({ label: `${s.title} T${i + 1}`, color: s.color, dashed: i === 1, samples: z.history() }),

@@ -3,7 +3,7 @@
 import type { FleetMode } from './contracts';
 import { dhanmondi, dhanmondiDistrict } from './map';
 import { naivePolicy } from './policies/naive';
-import { localPolicy } from './policies/local';
+import { localPolicy, sagLimit } from './policies/local';
 import { staggerPolicy } from './policies/stagger';
 import { createScheduler } from './policies/scheduler';
 import { createDistrict, DISTRICT_THERMAL } from './sim/district';
@@ -25,4 +25,9 @@ function makeDistrict(mode: FleetMode, seed: number) {
 }
 
 const root = document.getElementById('app');
-if (root) mountMapApp(root, { map: dhanmondi, makeDistrict, burstC: DISTRICT_THERMAL.burstHotSpotC });
+if (root) mountMapApp(root, {
+    map: dhanmondi,
+    makeDistrict,
+    burstC: DISTRICT_THERMAL.burstHotSpotC,
+    tolerance: (soc) => sagLimit(soc),
+  });

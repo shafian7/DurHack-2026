@@ -39,3 +39,25 @@ describe('Dhanmondi map data', () => {
     });
   });
 });
+
+import { chargerOf, networkOutageForPowerCut, TOWER_BACKUP_TICKS, TOWER_RESTART_TICKS } from '../../src/map';
+
+describe('socket view lookup and the mobile network', () => {
+  it('chargerOf is the inverse of bayOf for every charger', () => {
+    districtZones().forEach((z, zone) => {
+      for (let id = 0; id < z.feeders.length; id++) {
+        const { garage, bay } = bayOf(dhanmondi, zone, id);
+        expect(chargerOf(dhanmondi, garage, bay)).toEqual({ zone, id });
+      }
+    });
+  });
+
+  it('a power cut longer than the tower backup takes the network down, and it returns after the grid', () => {
+    expect(networkOutageForPowerCut(600, TOWER_BACKUP_TICKS)).toEqual([]);
+    const events = networkOutageForPowerCut(600, 60);
+    expect(events).toEqual([
+      { atTick: 600 + TOWER_BACKUP_TICKS, command: { kind: 'killScheduler' } },
+      { atTick: 660 + TOWER_RESTART_TICKS, command: { kind: 'reviveScheduler' } },
+    ]);
+  });
+});

@@ -2,15 +2,19 @@
 
 **Status:** built on the `shafian` branch, Sunday 15 November 2026. It replaces the first interface (B40 to B43) and the street-diagram proposal. The full plan is in [plan.md](../plan.md) §1 and §3.6.
 
-## The story: a connection that breaks (15 November)
+## The story: the network fails, the wire doesn't (15 November)
 
-The left map is **Connected chargers**: the `central` mode, where a central server switches every charger over a data link. A purple **control centre** sits on the map, with dashed signal lines to all ten garages and data pulses flowing out. While the link is up, the server keeps both transformers under their limit. **Cut the connection** (the red button in the top bar, or X) cuts the link. The lines flash red and snap, the hub goes grey ("No connection"), and every charger falls back to charging flat out (BUILD D06). The load climbs, and the east transformer bursts about two hours later. **Restore the connection** brings the server back, but a burst transformer stays dark. With **Auto-cut at 21:00** on (the default, toggled in Controls), the link drops by itself at 21:00 once per run, so the story plays while the presenter talks.
+**Left: App-controlled chargers** (the `central` mode). A utility server tells each charger when to draw, over the mobile network. A purple **Utility server** sits on the map, with dashed data links to the ten garages and data pulses flowing out. While the network is up it keeps both transformers under their limit, so it is a fair rival. **Network outage** (red top-bar button, or X) takes the network down: the links snap, the server goes grey ("No signal"), and every charger falls back to charging flat out (BUILD D06). The east transformer bursts about two hours later. **Restore network** brings the server back, but a burst transformer stays dark. With **Outage at 21:00** on (the default, in Controls), the network drops by itself once per run.
 
-The right map is **Smart chargers**: there is no hub and no lines. The same cut shows "Nothing to cut", and nothing changes.
+**Power cuts take the network with them.** Press **Power cut** (one hour). After 30 minutes the mobile towers' backup batteries run out, and the network stays down until 20 minutes after the grid returns (`src/map/network.ts`; both durations are model assumptions with no source). When power returns, the app-controlled chargers have no instructions and all start at once. Honest result over 10 seeds: the app side spikes to about 134% of the limit, but does not burst, and still sends 99.8% out charged. The smart side restarts gradually (peak about 111%) but sends only 90.3% out charged. Present it as a realism feature, not a win.
 
-Seeds 1 to 10 (`docs/RESULTS.md`): with the link up all night, central never bursts. Cut at 21:00, it bursts on 10 of 10 nights, between 23:09 and 23:45.
+**Right: Smart chargers.** No server, no links. A network outage shows "Nothing to lose".
 
-The two-map ordinary-against-smart version is tagged `dhanmondi-v2`.
+**Socket view.** Click any garage bay on either map. The same charger opens on both maps, each in its own world: a 90-minute trace of the voltage at its socket, a strip of its state (waiting, charging, full), its battery, and one plain sentence on why it is doing what it is doing. On the smart side, the trace also shows its back-off line for its current battery level (the battery part of the rule; the deprivation boost is not drawn). Esc or ✕ closes it.
+
+**Start time.** `?at=22:30` in the address starts the night at that time, for rehearsals and for opening the demo just before the moment you want.
+
+Earlier versions: `dhanmondi-v1` (dashboard layout), `dhanmondi-v2` (ordinary against smart), `dhanmondi-v3-central` (first central-server version).
 
 ## Layout (demo version, 15 November)
 

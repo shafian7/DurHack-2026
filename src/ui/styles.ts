@@ -87,6 +87,19 @@ button { font: inherit; color: inherit; }
 .key span { display: flex; align-items: center; gap: 7px; }
 .sw { width: 10px; height: 10px; display: inline-block; border-radius: 3px; flex: none; }
 .note { margin-top: 12px; font-size: 11px; color: ${colors.faint}; line-height: 1.45; }
+.socket { position: absolute; right: 14px; top: 62px; width: min(320px, calc(100% - 28px)); border-radius: 16px; padding: 10px 12px 11px; opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity .2s, transform .2s; z-index: 2; }
+.socket.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.socket-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.socket-head div { display: grid; gap: 1px; }
+.socket-head b { font-size: 14px; font-weight: 750; }
+.socket-head span { font-size: 11.5px; color: ${colors.muted}; }
+.socket canvas { display: block; }
+.socket-facts { display: grid; grid-template-columns: 1.4fr 0.8fr 1fr; gap: 8px; margin-top: 6px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.socket-facts span { display: grid; gap: 1px; }
+.socket-facts small { font-size: 10px; font-weight: 650; color: ${colors.muted}; text-transform: uppercase; letter-spacing: .07em; }
+.socket-facts em { font-style: normal; font-weight: 550; font-size: 11px; color: ${colors.muted}; }
+.socket-facts i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+.socket-why { margin-top: 7px; font-size: 12.5px; line-height: 1.4; color: ${colors.ink}; }
 kbd { font: inherit; font-weight: 650; background: #fff; border: 1px solid ${colors.line}; border-radius: 5px; padding: 0 5px; }
 
 @media (max-width: 1100px) {

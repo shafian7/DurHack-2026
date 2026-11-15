@@ -1,5 +1,13 @@
 # Lane B status
 
+## Utility-app rival, power-cut fix, socket view (15 November, on `shafian`)
+
+- **Rival:** the left map is the central mode again, reframed as a utility app over the mobile network. The network outage is manual, or automatic at 21:00. A one-hour power cut now also takes the network down after 30 minutes of tower backup, and it returns 20 minutes after the grid; both durations are assumed (`src/map/network.ts`).
+- **Power-cut fix in `local.ts`:** the outage now clears the back-off count, the restart window is 15 minutes (was 40), and there's a 5% early-start chance per tick when the sag is 3 points below the limit. Single-transformer standard experiment, seeds 1 to 10: the standard night is unchanged (peak 100.5%, 3.0 overloaded minutes, 99.1% ready). With a power cut at 23:00, ready rises from **86.9% to 90.3%**, and the far half from **81.0% to 85.5%**. That is still below naive (98.7%) and central (99.7%). The cause: after losing an hour, far-end chargers see too much sag to restart, even when the transformer has room (the load sits at 72–89% while 50 to 76 chargers wait). A stronger setting (10% early start) reached 91.3%, but pushed the clause 2 peak ratio to 0.849 against a 0.85 limit, so I did not take it. **Still a known weakness.**
+- **District, seeds 1 to 10:** local 0 bursts, 96.4% ready (was 96.1%). Central with the network down from 21:00: 10 of 10 burst. A one-hour power cut at 22:00: naive bursts in 10 of 10; local 0 bursts, 90.3% ready; central with tower failure 0 bursts, a peak of about 134% on T2, 99.8% ready.
+- **Socket view:** click a bay to open the panel (`src/ui/socketView.ts`). There is also a `?at=HH:MM` start time.
+- **Tests:** 163 pass. New tests cover the outage back-off reset, `chargerOf` against `bayOf`, the network model, and `?at=` parsing.
+
 ## Dhanmondi map rewrite (15 November, about 01:10, on `shafian`, at Shafian's request)
 
 The plan is in `plan.md`. This crosses lanes A, C and D: core heating and burst, a two-transformer district, a new UI and the map data. It stays on `shafian` until the team agrees.
