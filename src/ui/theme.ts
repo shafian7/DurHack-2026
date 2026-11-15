@@ -1,38 +1,51 @@
-/** Colours and type for the map interface. One light, calm palette. */
+/**
+ * Colours and type for the map interface. A night palette taken from the
+ * intro page (public/intro.html): deep navy grounds, lavender text and the
+ * intro's yellow for light. Status colours are brightened so they read on
+ * the dark map.
+ */
 export const colors = {
-  bg: '#f3f1ec',
-  panel: '#ffffff',
-  ink: '#1d2633',
-  muted: '#6b7280',
-  faint: '#9aa3ae',
-  line: '#e6e2da',
+  bg: '#0B1230',
+  panel: '#13194A',
+  panelHi: '#1C2259',
+  ink: '#EEF0FF',
+  muted: '#9EA3D6',
+  faint: '#7E84BE',
+  line: '#2A3170',
 
-  land: '#f6f4ef',
-  building: '#e4e0d7',
-  buildingEdge: '#d3cdc1',
-  road: '#c9c3b8',
-  roadMinor: '#d6d1c7',
+  /** The intro's light: logo, windows, active controls. */
+  yellow: '#FFD966',
 
-  night: 'rgba(36, 48, 82, 0.16)',
-  lit: 'rgba(255, 214, 140, 0.5)',
-  dark: 'rgba(58, 62, 72, 0.85)',
+  land: '#141A44',
+  building: '#262C66',
+  buildingEdge: '#343C80',
+  road: '#4A5196',
+  roadMinor: '#323979',
 
-  ok: '#2f9e6e',
-  warn: '#e3a008',
-  hot: '#e2553f',
-  burst: '#b42318',
-  rickshaw: '#1f7a62',
-  rickshawAlt: '#2c9b7d',
-  charging: '#34b27b',
-  full: '#3b82f6',
-  waiting: '#a7b0bb',
+  night: 'rgba(3, 4, 15, 0.38)',
+  lit: 'rgba(255, 214, 90, 0.74)',
+  dark: 'rgba(4, 5, 14, 0.94)',
+  darkEdge: 'rgba(158, 163, 214, 0.28)',
 
-  naive: '#e2553f',
-  local: '#2f7fd8',
+  ok: '#4ADE9A',
+  warn: '#F2994A',
+  hot: '#FF5A4A',
+  burst: '#E5383B',
+  rickshaw: '#F2C94C',
+  rickshawAlt: '#FFE39A',
+  charging: '#4ADE9A',
+  full: '#5AA9FF',
+  waiting: '#7E84BE',
+
+  naive: '#FF5A4A',
+  local: '#5AA9FF',
 } as const;
 
 export const font =
   "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+
+/** The intro's pixel font, for the RICKSHAWS wordmark. */
+export const pixelFont = "'Press Start 2P', ui-monospace, 'Courier New', monospace";
 
 /** Status colour for a load share or temperature. */
 export function loadColor(share: number): string {
