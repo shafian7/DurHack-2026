@@ -115,6 +115,10 @@ export interface TransformerView {
   readonly supplyPu: number;
   /** True while the neighbourhood has no power. */
   readonly tripped: boolean;
+  /** Winding hot-spot temperature, in °C. Equals the ambient when no thermal model is configured. */
+  readonly hotSpotC: number;
+  /** True once the transformer has burst. It never comes back within a run. */
+  readonly burst: boolean;
   /** When power returns. null when energised. */
   readonly recloseTick: Tick | null;
 }
@@ -155,6 +159,20 @@ export interface TransformerConfig {
   readonly tripAfterTicks: number;
   /** How long the neighbourhood is dark after a trip. */
   readonly outageTicks: number;
+  /**
+   * Optional heating and burst (plan.md §3.3). A first-order model:
+   * steady hot-spot = ambientC + ratedHotSpotRiseC × (load / rating)², reached
+   * with time constant thermalTauTicks. At burstHotSpotC the transformer
+   * bursts and stays dark for the rest of the run. Illustrative, not measured.
+   */
+  readonly thermal?: ThermalConfig;
+}
+
+export interface ThermalConfig {
+  readonly ambientC: number;
+  readonly ratedHotSpotRiseC: number;
+  readonly thermalTauTicks: number;
+  readonly burstHotSpotC: number;
 }
 
 export interface BaseLoadConfig {
@@ -195,6 +213,11 @@ export interface SimConfig {
   readonly arrivals: ArrivalConfig;
   /** Central mode only: how often plan() is called. */
   readonly scheduleIntervalTicks: number;
+  /**
+   * Optional feeder position per charger id, 0 to 1, for a layout taken from a
+   * real map. Missing or short: the rest are drawn from the layout stream.
+   */
+  readonly feeders?: readonly number[];
 }
 
 // ------------------------------------------------------------ judge commands
@@ -252,6 +275,12 @@ export interface Metrics {
   readonly meanDepartureSoc: number | null;
   /** Energy drawn by chargers from the grid, since tick 0. */
   readonly energyDeliveredKwh: number;
+  /** Times the transformer burst, since tick 0 (0 or 1). */
+  readonly bursts: number;
+  /** Tick of the burst, or null. */
+  readonly burstTick: Tick | null;
+  /** Highest hot-spot temperature since tick 0, in °C. */
+  readonly maxHotSpotC: number;
 }
 
 /** One point of the load curve. */
@@ -264,6 +293,8 @@ export interface TickSample {
   readonly drawing: number;
   readonly busVolts: number;
   readonly tripped: boolean;
+  readonly hotSpotC: number;
+  readonly burst: boolean;
 }
 
 // ----------------------------------------------------------------- simulation

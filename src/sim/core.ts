@@ -71,11 +71,17 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
   const { transformer: tx, charger: ch, arrivals } = config;
   const gain = socGainPerTick(ch);
 
+  const pickFeeder = (id: number, drawn: number): number => {
+    const given = config.feeders?.[id];
+    return given !== undefined && Number.isFinite(given) ? clamp(given, 0, 1) : drawn;
+  };
+
   const chargers: Charger[] = [];
   for (let id = 0; id < config.fleetSize; id += 1) {
     chargers.push({
       id,
-      feeder: layoutRng.next(),
+      // The layout draw happens either way, so the stream stays aligned.
+      feeder: pickFeeder(id, layoutRng.next()),
       memory: policy ? policy.createMemory(behaviourRng) : null,
       present: false,
       removed: false,
@@ -99,6 +105,14 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
   let ratingScale = 1;
   let supplyPu = 1;
   let schedulerAlive = true;
+
+  // Heating and burst (plan.md §3.3).
+  const thermal = tx.thermal;
+  const ambientC = thermal?.ambientC ?? 30;
+  let hotSpotC = ambientC;
+  let maxHotSpotC = ambientC;
+  let burst = false;
+  let burstTick: number | null = null;
 
   // Transformer state.
   let tripped = false;
@@ -223,7 +237,7 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
         if (Number.isFinite(command.perUnit) && command.perUnit >= 0) supplyPu = command.perUnit;
         break;
       case 'powerCut':
-        if (Number.isFinite(command.ticks) && command.ticks >= 1) {
+        if (!burst && Number.isFinite(command.ticks) && command.ticks >= 1) {
           const until = tick + Math.round(command.ticks);
           tripped = true;
           recloseTick = Math.max(recloseTick ?? 0, until);
@@ -295,6 +309,8 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
       supplyPu,
       tripped,
       recloseTick,
+      hotSpotC,
+      burst,
     },
     schedulerAlive,
   });
@@ -338,7 +354,7 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
     nowBaseKw = Math.max(0, baseLoadKw(config.baseLoad, tick) * baseLoadScale * (1 + config.baseLoad.noiseShare * noise));
 
     // 4. Power returns when an outage ends. Chargers then see the voltage under household load alone.
-    if (tripped && recloseTick !== null && tick >= recloseTick) {
+    if (tripped && !burst && recloseTick !== null && tick >= recloseTick) {
       tripped = false;
       recloseTick = null;
       overloadRun = 0;
@@ -414,6 +430,14 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
     }
     lastLoadKw = nowLoadKw;
 
+    // 9b. Heating. The hot-spot moves towards its steady value for this load.
+    if (thermal) {
+      const k = burst ? 0 : nowLoadKw / tx.ratingKw;
+      const steady = ambientC + thermal.ratedHotSpotRiseC * k * k;
+      hotSpotC += (steady - hotSpotC) / Math.max(1, thermal.thermalTauTicks);
+      if (hotSpotC > maxHotSpotC) maxHotSpotC = hotSpotC;
+    }
+
     // 10. History, then protection takes effect from the next tick.
     samples.push({
       tick,
@@ -424,8 +448,20 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
       drawing: nowDrawing,
       busVolts: nowBusVolts,
       tripped,
+      hotSpotC,
+      burst,
     });
     if (samples.length > 2 * HISTORY_TICKS) samples = samples.slice(-HISTORY_TICKS);
+
+    if (thermal && !burst && hotSpotC >= thermal.burstHotSpotC) {
+      // The transformer fails. Dark for the rest of the run, no reclose.
+      burst = true;
+      burstTick = tick;
+      tripped = true;
+      recloseTick = null;
+      overloadRun = 0;
+      for (const c of chargers) c.drawing = false;
+    }
 
     if (!tripped && overloadRun >= tx.tripAfterTicks) {
       tripped = true;
@@ -459,6 +495,9 @@ export const createSimulation: CreateSimulation = (config, mode, deps) => {
     readyShareFar: share(readyFar, departuresFar),
     meanDepartureSoc: departures === 0 ? null : departureSocSum / departures,
     energyDeliveredKwh,
+    bursts: burst ? 1 : 0,
+    burstTick,
+    maxHotSpotC,
   });
 
   return {

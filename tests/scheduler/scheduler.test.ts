@@ -44,6 +44,8 @@ function world(chargers: ChargerView[], t: Partial<WorldSnapshot['transformer']>
     schedulerAlive: true,
     chargers,
     transformer: {
+      hotSpotC: 30,
+      burst: false,
       ratingKw: 220,
       baseLoadKw,
       chargerLoadKw: drawing,

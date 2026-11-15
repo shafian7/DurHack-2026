@@ -1,5 +1,17 @@
 # Lane B status
 
+## Dhanmondi map rewrite (15 November, about 01:10, on `shafian`, at Shafian's request)
+
+The plan is in `plan.md`. This crosses lanes A, C and D: core heating and burst, a two-transformer district, a new UI and the map data. It stays on `shafian` until the team agrees.
+
+- **Engine:** `src/contracts.ts` gains additive fields: an optional `thermal` config, `hotSpotC`/`burst` on the transformer view and samples, `bursts`/`burstTick`/`maxHotSpotC` in metrics, and an optional `feeders` array. `src/sim/core.ts` adds first-order heating and a permanent burst. `src/sim/district.ts` runs one zone per transformer. `Observation` is unchanged, so the charger rule is untouched.
+- **Map:** `scripts/map/dhanmondi.osm.json` is an Overpass extract (bbox 23.7395 to 23.7480 N, 90.3700 to 90.3820 E, fetched 15 November). `scripts/build-map.ts` turns it into `src/map/dhanmondi.json` (98 kB): the real road network, plus schematic boxes placed along the roads. Shafian asked for roads and boxes rather than real footprints. T1 feeds 480 boxes and T2 309. There are ten garages of 20 bays, at wire distances of 296 to 818 m.
+- **Calibration, against naive only:** thermal ambient 32 °C, rated rise 78 °C, τ 75 min, burst at 140 °C; trip at 1.6 times rating. Ratings were tried at 150/110 kW (no naive burst), 115/92 kW, 105/85 kW and 100/80 kW. **Chosen: 115/92 kW.** Seeds 1 to 10, three days: naive bursts T2 in 10 of 10 seeds, around 23:15 to 23:30 on the first night. T1 reaches 132 to 133 °C without bursting. Local never bursts (hottest 113 °C) and leaves 96.1% ready (far half 95.1%).
+- **UI:** `src/ui/` was rewritten as described in `docs/UI.md`. It was checked in the browser at 1920 × 1080 and 1366 × 768: both maps play, the T2 burst shows with its banner, and there are no console errors.
+- **Tests:** `tests/sim/thermal.test.ts`, `tests/sim/district.test.ts`, `tests/map/map.test.ts` and `tests/ui/boundary.test.ts` were added. The old UI tests went with the old UI.
+- **Commands:** `npm run typecheck` exit 0; `npm test` passes; `npm run build` exit 0.
+- **Not done:** `docs/SPEC.md`, `CONTRACTS.md` and `BUILD.md` have not been rewritten to match. `plan.md` is the reference for the new direction until the team agrees on it.
+
 ## Summary (about 00:40 Sunday 15 November)
 
 - **Done, committed on branch `shafian`** (not yet in `build`): B20 baselines, B21 local rule and bench, B22 experiment runner, B23 the G2 experiment, B24 resilience tables. On Shafian's instruction the work went onto the `shafian` branch as commits, not as one PR per item into `build`.

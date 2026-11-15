@@ -1,5 +1,5 @@
 /**
- * npm run experiment [-- --seeds 1-10] [--out docs/RESULTS.md] [--no-resilience]
+ * npm run experiment [-- --seeds 1-10] [--out docs/RESULTS.md] [--no-resilience] [--no-district]
  *
  * Runs the standard experiment (VALIDATION §2), judges the claim clause by
  * clause, runs the B24 resilience variants, and writes docs/RESULTS.md.
@@ -35,6 +35,8 @@ const value = (flag: string): string | undefined => {
 
 const seeds = parseSeeds(value('--seeds') ?? '1-10');
 const out = value('--out') ?? 'docs/RESULTS.md';
-const report = buildReport({ commit: currentCommit(), seeds, resilience: !args.includes('--no-resilience') });
+const report = buildReport({ commit: currentCommit(), seeds, resilience: !args.includes('--no-resilience'),
+  district: !args.includes('--no-district'),
+});
 writeFileSync(out, report);
 console.log(`Wrote ${out} (${seeds.length} seeds).`);

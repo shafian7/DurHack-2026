@@ -8,6 +8,7 @@ import { defaultConfig } from '../src/sim';
 import { standard, tickAt } from '../src/scenarios';
 import { LOCAL_PARAMS } from '../src/policies/local';
 import { MAX_DELAY_TICKS } from '../src/policies/stagger';
+import { districtSection } from './district';
 import {
   formatPerSeed,
   formatTable,
@@ -55,6 +56,8 @@ export interface ReportOptions {
   readonly scenario?: Scenario;
   /** Include the B24 resilience tables. */
   readonly resilience?: boolean;
+  /** Include the two-transformer Dhanmondi district table. */
+  readonly district?: boolean;
 }
 
 function configBlock(config: SimConfig): string {
@@ -101,6 +104,8 @@ export function buildReport(options: ReportOptions): string {
     `Clause 6 is judged on central mode with the scheduler killed at tick ${KILL_TICK}. The local chargers are unaffected by \`killScheduler\` by construction, because they never had a scheduler.`,
     '',
   ];
+
+  if (options.district) out.push(districtSection(seeds), '');
 
   if (options.resilience) {
     out.push('## Resilience experiments (B24)', '', 'No thresholds are set for these (VALIDATION §2). They are reported as they are.', '');

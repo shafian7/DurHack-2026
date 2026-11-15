@@ -1,425 +1,319 @@
 /**
- * The interface: builds the page, runs every neighbourhood in lockstep and
- * draws them. It reads only the Simulation contract; it never imports the sim
- * core, the policies or the scenarios (VALIDATION V08).
+ * The page: two copies of Dhanmondi on the same night, ordinary chargers on
+ * the left and smart chargers on the right, with the load chart and the
+ * actions below (plan.md §1). Every command goes to both sides on the same tick.
  */
-import type { AppDeps, Command, FleetMode, Scenario, SimConfig, Simulation, Tick } from '../contracts';
-import { fitCanvas } from './canvas';
-import { drawChart, type ChartEvent } from './chart';
-import { commandLabel, createCommandPanel } from './controls';
-import { el, setText } from './dom';
-import { createChartLegend, createStreetLegend } from './legend';
-import { createScoreboard, type Scoreboard } from './scoreboard';
-import { drawStreet } from './street';
-import { injectStyles } from './styles';
-import { DISPLAY_MODES, MODE_STYLE } from './theme';
-import { clockLabel } from './time';
+import { TICKS_PER_DAY, type Command, type FleetMode, type WorldSnapshot } from '../contracts';
+import type { District } from '../sim/district';
+import type { MapData } from '../map';
+import { drawChart, type Series } from './chart';
+import { MapView } from './mapView';
+import { Motion } from './motion';
+import { css } from './styles';
+import { colors } from './theme';
 
-export interface AppOptions {
-  /** Start the animation loop at once. mountApp does; tests drive frames by hand. */
-  readonly autoStart?: boolean;
-  /** The neighbourhoods to show, in order. Defaults to naive, ours, scheduled. */
-  readonly modes?: readonly FleetMode[];
+export interface UiDeps {
+  readonly map: MapData;
+  /** Builds one side of the comparison for a seed. */
+  readonly makeDistrict: (mode: FleetMode, seed: number) => District;
+  /** Hot-spot temperature at which a transformer bursts, for the gauges. */
+  readonly burstC: number;
 }
 
-export interface AppHandle {
-  readonly root: HTMLElement;
-  readonly sims: readonly Simulation[];
-  readonly tick: Tick;
-  readonly paused: boolean;
-  readonly speed: number;
-  readonly scenario: Scenario | null;
-  /** Steps every neighbourhood the same number of ticks, replaying the script if one is playing. */
-  advance(ticks: number): void;
-  render(): void;
-  /** One animation frame at the given time in milliseconds. */
-  frame(nowMs: number): void;
-  /** Sends one command to every neighbourhood, on the same tick. */
-  send(command: Command): void;
-  setSpeed(multiplier: number): void;
-  setPaused(paused: boolean): void;
-  /** Rebuilds every neighbourhood from the current scenario's config at tick 0. */
-  reset(): void;
-  selectScenario(id: string): void;
-  /** Resets, then replays the current scenario's script until its duration. */
-  playScript(): void;
-  destroy(): void;
+type SideMode = 'naive' | 'local';
+
+interface Side {
+  readonly mode: SideMode;
+  readonly title: string;
+  readonly subtitle: string;
+  readonly color: string;
+  district: District;
+  readonly view: MapView;
+  readonly stage: HTMLElement;
+  readonly stats: HTMLElement;
+  readonly banner: HTMLElement;
+  bannerUntil: number;
+  announced: Set<number>;
 }
 
-/** Simulated minutes per real second at 1× speed: a day in 24 seconds. */
-export const BASE_TICKS_PER_SECOND = 60;
-export const SPEEDS: readonly number[] = [0.25, 0.5, 1, 2, 4, 8];
-/** The screen size the layout is drawn for; other screens scale to it. */
-export const DESIGN_WIDTH = 1920;
-export const DESIGN_HEIGHT = 1080;
-/** Upper bound on ticks per frame, so a slow frame never stalls the page. */
-const MAX_TICKS_PER_FRAME = 240;
+/** Simulated minutes per real second. */
+const SPEEDS = [2, 10, 30, 60] as const;
+/** Each run starts at 17:00 on day one, just before rickshaws start coming home. */
+const START_TICK = 5 * 60;
 
-interface HoodView {
-  readonly mode: FleetMode;
-  readonly card: HTMLElement;
-  readonly street: HTMLCanvasElement;
-  readonly score: Scoreboard;
-  readonly powerBadge: HTMLElement;
-  readonly schedulerBadge: HTMLElement;
+const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+};
+
+export function clockText(tick: number): { night: string; time: string } {
+  const minutes = ((((12 * 60 + tick) % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY);
+  const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const mm = String(Math.floor(minutes % 60)).padStart(2, '0');
+  return { night: `Night ${Math.floor(tick / TICKS_PER_DAY) + 1}`, time: `${hh}:${mm}` };
 }
 
-interface ScriptRun {
-  readonly scenario: Scenario;
-  cursor: number;
-}
+export function mountMapApp(root: HTMLElement, deps: UiDeps): { destroy(): void } {
+  const style = el('style');
+  style.textContent = css;
+  document.head.append(style);
 
-const SCALE_KINDS = new Set(['setBaseLoadScale', 'setRatingScale', 'setSupplyVoltage']);
-
-export function createApp(root: HTMLElement, deps: AppDeps, options: AppOptions = {}): AppHandle {
-  const doc = root.ownerDocument;
-  const modes = options.modes ?? DISPLAY_MODES;
-  injectStyles(doc);
-  root.classList.add('rk-root');
-  root.replaceChildren();
-
-  let scenario: Scenario | null = deps.scenarios[0] ?? null;
-  let sims: Simulation[] = [];
-  const events: ChartEvent[] = [];
-  let script: ScriptRun | null = null;
-  let speed = 1;
-  let paused = false;
+  const motion = new Motion(deps.map);
+  let seed = 1;
+  let speed: number = SPEEDS[1];
+  let playing = true;
+  let heatwave = false;
   let carry = 0;
-  let lastFrame: number | null = null;
-  let raf: number | null = null;
-  let destroyed = false;
-  let failed = false;
 
-  const configFor = (sc: Scenario | null): SimConfig => (sc ? sc.configure(deps.defaultConfig) : deps.defaultConfig);
+  const app = el('div', 'app');
+  root.replaceChildren(app);
 
-  // ------------------------------------------------------------------ layout
-  const clock = el(doc, 'div', { class: 'rk-clock', 'aria-label': 'Simulated time' });
-
-  const pauseBtn = el(doc, 'button', { type: 'button', class: 'rk-btn rk-run-btn', 'data-run': 'pause' });
-  const speedBtns = SPEEDS.map((s) =>
-    el(doc, 'button', {
-      type: 'button',
-      class: 'rk-btn rk-speed',
-      'data-speed': s,
-      title: `${s}× speed`,
-      text: s === 0.25 ? '¼×' : s === 0.5 ? '½×' : `${s}×`,
-    }),
-  );
-  const resetBtn = el(doc, 'button', { type: 'button', class: 'rk-btn rk-run-btn', 'data-run': 'reset', text: '↺ Reset' });
-  const scenarioSelect = el(
-    doc,
-    'select',
-    { class: 'rk-select', 'data-run': 'scenario', 'aria-label': 'Scenario' },
-    deps.scenarios.map((s) => el(doc, 'option', { value: s.id, text: s.title })),
-  );
-  const scriptBtn = el(doc, 'button', { type: 'button', class: 'rk-btn rk-run-btn', 'data-run': 'script', text: '▶ Play script' });
-  const fullBtn = el(doc, 'button', {
-    type: 'button',
-    class: 'rk-btn rk-run-btn',
-    'data-run': 'fullscreen',
-    title: 'Full screen (F)',
-    text: '⛶ Full screen',
-  });
-  const scriptStatus = el(doc, 'span', { class: 'rk-script-status', role: 'status' });
-  const scenarioDesc = el(doc, 'p', { class: 'rk-scenario-desc' });
-
-  const runBar = el(doc, 'div', { class: 'rk-run', role: 'toolbar', 'aria-label': 'Run controls' }, [
-    pauseBtn,
-    el(doc, 'div', { class: 'rk-speeds', role: 'group', 'aria-label': 'Speed' }, speedBtns),
-    resetBtn,
-    scenarioSelect,
-    scriptBtn,
-    fullBtn,
-    scriptStatus,
-  ]);
-
-  const header = el(doc, 'header', { class: 'rk-top' }, [
-    el(doc, 'div', { class: 'rk-brand' }, [
-      el(doc, 'h1', { text: 'RICKSHAWS' }),
-      el(doc, 'p', { text: 'Chargers that spread their own load' }),
-    ]),
-    clock,
-    runBar,
-  ]);
-
-  const chart = el(doc, 'canvas', {
-    class: 'rk-chart',
-    role: 'img',
-    'aria-label': 'Load on the transformer over time for each neighbourhood, against its rating',
-  });
-  const judge = createCommandPanel(doc, (cmd) => send(cmd));
-  const main = el(doc, 'div', { class: 'rk-main' }, [
-    el(doc, 'section', { class: 'rk-chart-wrap' }, [
-      el(doc, 'div', { class: 'rk-chart-head' }, [scenarioDesc, createChartLegend(doc, modes)]),
-      chart,
-    ]),
-    judge,
-  ]);
-
-  const hoods: HoodView[] = modes.map((mode) => {
-    const style = MODE_STYLE[mode];
-    const street = el(doc, 'canvas', {
-      class: 'rk-street',
-      role: 'img',
-      'aria-label': `${style.label}: one mark per charger along the street`,
+  // -------------------------------------------------------------- header
+  const top = el('div', 'top');
+  const brand = el('div', 'brand');
+  brand.append(el('h1', undefined, 'RICKSHAWS'), el('span', undefined, `Battery-rickshaw charging in ${deps.map.name}`));
+  const play = el('button', 'btn primary', 'Pause');
+  play.dataset.action = 'play';
+  const seg = el('div', 'seg');
+  const speedButtons = SPEEDS.map((s) => {
+    const b = el('button', s === speed ? 'on' : '', `${s} min/s`);
+    b.addEventListener('click', () => {
+      speed = s;
+      speedButtons.forEach((x) => x.classList.toggle('on', x === b));
     });
-    const score = createScoreboard(doc);
-    const powerBadge = el(doc, 'div', { class: 'rk-badge rk-badge-out', role: 'status', hidden: true }, [
-      el(doc, 'span', { class: 'rk-badge-icon', 'aria-hidden': 'true', text: '✕' }),
-      'POWER OUT',
-    ]);
-    const schedulerBadge = el(doc, 'div', { class: 'rk-badge rk-badge-dead', role: 'status', hidden: true }, [
-      el(doc, 'span', { class: 'rk-badge-icon', 'aria-hidden': 'true', text: '⊘' }),
-      'SCHEDULER OFFLINE: chargers fall back to plain charging',
-    ]);
-    const card = el(doc, 'section', { class: 'rk-hood', 'data-mode': mode, 'data-power': 'on' }, [
-      el(doc, 'h2', {}, [el(doc, 'span', { class: 'rk-swatch', 'data-marker': style.marker }), style.label]),
-      el(doc, 'p', { class: 'rk-blurb', text: style.blurb }),
-      powerBadge,
-      schedulerBadge,
-      street,
-      score.node,
-    ]);
-    card.style.setProperty('--accent', style.colour);
-    card.querySelector<HTMLElement>('.rk-swatch')!.style.background = style.colour;
-    return { mode, card, street, score, powerBadge, schedulerBadge };
+    return b;
   });
-  const hoodRow = el(doc, 'section', { class: 'rk-hoods' }, hoods.map((h) => h.card));
+  seg.append(...speedButtons);
+  const clock = el('div', 'clock');
+  top.append(brand, clock, play, seg);
 
-  root.append(header, main, createStreetLegend(doc), hoodRow);
+  // -------------------------------------------------------------- maps
+  const maps = el('div', 'maps');
+  const makeSide = (mode: SideMode, title: string, subtitle: string, color: string): Side => {
+    const panel = el('section', 'panel');
+    panel.dataset.mode = mode;
+    const header = el('header');
+    const dot = el('span', 'dot');
+    dot.style.background = color;
+    const titles = el('div', 'titles');
+    titles.append(el('h2', undefined, title), el('p', undefined, subtitle));
+    header.append(dot, titles);
+    const stage = el('div', 'stage');
+    const view = new MapView(deps.map, motion);
+    stage.append(view.canvas);
+    const banner = el('div', 'banner');
+    const stats = el('div', 'stats');
+    const key = el('div', 'keyrow');
+    key.innerHTML = `
+      <span><i class="sw" style="background:${colors.charging}"></i>charging</span>
+      <span><i class="sw" style="border:1.4px solid ${colors.waiting}"></i>waiting</span>
+      <span><i class="sw" style="background:${colors.full}"></i>full</span>
+      <span><i class="sw" style="background:${colors.rickshaw};border-radius:50%"></i>rickshaw on the road</span>`;
+    const footer = el('div');
+    footer.append(key, stats);
+    panel.append(header, stage, footer, banner);
+    maps.append(panel);
+    return {
+      mode,
+      title,
+      subtitle,
+      color,
+      district: deps.makeDistrict(mode, seed),
+      view,
+      stage,
+      stats,
+      banner,
+      bannerUntil: 0,
+      announced: new Set(),
+    };
+  };
+  const sides: Side[] = [
+    makeSide('naive', 'Ordinary chargers', 'Every charger draws full power the moment a rickshaw plugs in.', colors.naive),
+    makeSide(
+      'local',
+      'Smart chargers',
+      'Each charger senses only its own socket voltage and backs off when it sags. No server, no messages.',
+      colors.local,
+    ),
+  ];
 
-  // ---------------------------------------------------------------- controls
-  function syncRunControls(): void {
-    setText(pauseBtn, paused ? '▶ Play' : '❚❚ Pause');
-    pauseBtn.setAttribute('aria-pressed', String(paused));
-    for (const b of speedBtns) b.setAttribute('aria-pressed', String(Number(b.dataset.speed) === speed));
-    if (scenario) scenarioSelect.value = scenario.id;
-    setText(scenarioDesc, scenario ? scenario.description : '');
-    scriptBtn.disabled = !scenario || scenario.script.length === 0;
-  }
+  // -------------------------------------------------------------- bottom
+  const bottom = el('div', 'bottom');
+  const chartCard = el('div', 'card');
+  const chartTitle = el('h3');
+  chartTitle.append('Load on each transformer tonight');
+  const legend = el('span', 'legend');
+  legend.innerHTML = `
+    <span><i style="border-color:${colors.naive}"></i>Ordinary T1</span>
+    <span><i class="d" style="border-color:${colors.naive}"></i>Ordinary T2</span>
+    <span><i style="border-color:${colors.local}"></i>Smart T1</span>
+    <span><i class="d" style="border-color:${colors.local}"></i>Smart T2</span>`;
+  chartTitle.append(legend);
+  const chartBox = el('div', 'chartbox');
+  const chart = el('canvas');
+  chartBox.append(chart);
+  chartCard.append(chartTitle, chartBox);
 
-  /** Marks which level of each scale command is in force. */
-  function syncPressed(cmd: Command | null): void {
-    for (const b of judge.querySelectorAll<HTMLButtonElement>('button[data-cmd]')) {
-      const kind = b.dataset.cmd!;
-      if (!SCALE_KINDS.has(kind)) continue;
-      if (cmd === null) b.setAttribute('aria-pressed', String(Number(b.dataset.value) === 1));
-      else if (cmd.kind === kind) {
-        const v = 'scale' in cmd ? cmd.scale : 'perUnit' in cmd ? cmd.perUnit : NaN;
-        b.setAttribute('aria-pressed', String(Number(b.dataset.value) === v));
-      }
+  const actionsCard = el('div', 'card');
+  actionsCard.append(el('h3', undefined, 'Change the night (both sides)'));
+  const actions = el('div', 'actions');
+  const action = (title: string, sub: string, cmd: string, onClick: (b: HTMLButtonElement) => void): HTMLButtonElement => {
+    const b = el('button', 'btn');
+    b.dataset.cmd = cmd;
+    b.append(el('b', undefined, title), el('span', undefined, sub));
+    b.addEventListener('click', () => onClick(b));
+    actions.append(b);
+    return b;
+  };
+  const send = (command: Command): void => {
+    for (const s of sides) s.district.apply(command);
+  };
+  action('Heatwave', 'Homes use 30% more', 'setBaseLoadScale', (b) => {
+    heatwave = !heatwave;
+    b.classList.toggle('on', heatwave);
+    send({ kind: 'setBaseLoadScale', scale: heatwave ? 1.3 : 1 });
+  });
+  action('Power cut', 'Grid off for one hour', 'powerCut', () => send({ kind: 'powerCut', ticks: 60 }));
+  action('Stubborn chargers', '20% ignore the rule', 'stubbornChargers', () =>
+    send({ kind: 'stubbornChargers', fraction: 0.2 }),
+  );
+  action('New night', 'Different arrivals', 'reset', () => {
+    seed += 1;
+    reset();
+  });
+  const note = el(
+    'div',
+    'note',
+    `Map: ${deps.map.attribution}. The transformer heating and burst point are illustrative model values, not measurements.`,
+  );
+  actions.append(note);
+  actionsCard.append(actions);
+  bottom.append(chartCard, actionsCard);
+
+  app.append(top, maps, bottom);
+
+  // -------------------------------------------------------------- behaviour
+  function warmUp(): void {
+    for (const s of sides) {
+      while (s.district.tick < START_TICK) s.district.step();
     }
-  }
-
-  function send(command: Command): void {
-    const tick = sims[0]?.tick ?? 0;
-    for (const sim of sims) sim.apply(command);
-    events.push({ tick, label: commandLabel(command) });
-    syncPressed(command);
-  }
-
-  function rebuild(): void {
-    const config = configFor(scenario);
-    sims = modes.map((mode) => deps.makeSimulation(mode, config));
-    events.length = 0;
-    carry = 0;
-    syncPressed(null);
   }
 
   function reset(): void {
-    script = null;
-    setText(scriptStatus, '');
-    rebuild();
-    render();
-  }
-
-  function setSpeed(multiplier: number): void {
-    if (SPEEDS.includes(multiplier)) speed = multiplier;
-    syncRunControls();
-  }
-
-  function setPaused(p: boolean): void {
-    paused = p;
-    lastFrame = null;
-    syncRunControls();
-  }
-
-  function selectScenario(id: string): void {
-    const next = deps.scenarios.find((s) => s.id === id);
-    if (!next) return;
-    scenario = next;
-    syncRunControls();
-    reset();
-  }
-
-  function playScript(): void {
-    if (!scenario) return;
-    reset();
-    script = { scenario, cursor: 0 };
-    setText(scriptStatus, `Script playing: ${scenario.title}`);
-    setPaused(false);
-  }
-
-  pauseBtn.addEventListener('click', () => setPaused(!paused));
-  for (const b of speedBtns) b.addEventListener('click', () => setSpeed(Number(b.dataset.speed)));
-  resetBtn.addEventListener('click', () => reset());
-  scenarioSelect.addEventListener('change', () => selectScenario(scenarioSelect.value));
-  scriptBtn.addEventListener('click', () => playScript());
-
-  function toggleFullscreen(): void {
-    try {
-      if (doc.fullscreenElement) void doc.exitFullscreen?.();
-      else void doc.documentElement.requestFullscreen?.();
-    } catch {
-      // Full screen is a nicety; the browser's own F11 still works.
+    heatwave = false;
+    actions.querySelector('[data-cmd="setBaseLoadScale"]')?.classList.remove('on');
+    for (const s of sides) {
+      s.district = deps.makeDistrict(s.mode, seed);
+      s.view.reset();
+      s.announced = new Set();
+      s.bannerUntil = 0;
+      s.banner.classList.remove('show');
     }
+    carry = 0;
+    warmUp();
   }
-  fullBtn.addEventListener('click', toggleFullscreen);
-  const onFullscreen = () => setText(fullBtn, doc.fullscreenElement ? '⛶ Exit full screen' : '⛶ Full screen');
-  doc.addEventListener('fullscreenchange', onFullscreen);
 
-  const onKey = (e: KeyboardEvent) => {
-    const t = e.target as HTMLElement | null;
-    if (t && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(t.tagName)) return;
-    if (e.key === ' ') {
-      e.preventDefault();
-      setPaused(!paused);
-    } else if (e.key === 'f' || e.key === 'F') {
-      toggleFullscreen();
+  play.addEventListener('click', () => {
+    playing = !playing;
+    play.textContent = playing ? 'Pause' : 'Play';
+  });
+
+  const layout = (): void => {
+    for (const s of sides) {
+      const r = s.stage.getBoundingClientRect();
+      s.view.resize(Math.floor(r.width), Math.floor(r.height));
     }
   };
-  doc.addEventListener('keydown', onKey);
+  const observer = new ResizeObserver(layout);
+  for (const s of sides) observer.observe(s.stage);
+  observer.observe(chartBox);
 
-  // ---------------------------------------------------------------- running
-  function advance(ticks: number): void {
-    for (let i = 0; i < ticks; i++) {
-      if (script) {
-        const t = sims[0]?.tick ?? 0;
-        const lines = script.scenario.script;
-        while (script.cursor < lines.length && lines[script.cursor]!.atTick <= t) {
-          send(lines[script.cursor]!.command);
-          script.cursor++;
-        }
-        if (t >= script.scenario.durationTicks) {
-          setText(scriptStatus, `Script finished: ${script.scenario.title}`);
-          script = null;
-          setPaused(true);
-          return;
-        }
+  const statHtml = (k: string, v: string, small = ''): string =>
+    `<div class="stat"><div class="k">${k}</div><div class="v">${v}${small ? `<small>${small}</small>` : ''}</div></div>`;
+
+  function updateStats(s: Side, zones: readonly WorldSnapshot[]): void {
+    const metrics = s.district.zones.map((z) => z.metrics());
+    const dark = zones.reduce(
+      (n, z, i) => n + (z.transformer.tripped || z.transformer.burst ? deps.map.transformers[i]!.buildings : 0),
+      0,
+    );
+    const departures = metrics.reduce((n, m) => n + m.departures, 0);
+    const ready = metrics.reduce((n, m) => n + m.readyDepartures, 0);
+    const charging = metrics.reduce((n, m) => n + m.drawingNow, 0);
+    const hottest = Math.max(...zones.map((z) => z.transformer.hotSpotC));
+    const bursts = metrics.reduce((n, m) => n + m.bursts, 0);
+    s.stats.innerHTML =
+      statHtml('Charging now', `${charging}`, 'rickshaws') +
+      statHtml('Hottest', `${Math.round(hottest)}°C`, bursts > 0 ? `${bursts} burst` : `bursts at ${deps.burstC}°C`) +
+      statHtml('Buildings dark', `${dark.toLocaleString()}`, `of ${deps.map.buildings.length.toLocaleString()}`) +
+      statHtml('Left charged', departures > 0 ? `${Math.round((100 * ready) / departures)}%` : '–', departures > 0 ? `of ${departures}` : 'none left yet');
+  }
+
+  function announce(s: Side, zones: readonly WorldSnapshot[], now: number): void {
+    zones.forEach((z, i) => {
+      if (z.transformer.burst && !s.announced.has(i)) {
+        s.announced.add(i);
+        const m = s.district.zones[i]!.metrics();
+        const at = m.burstTick !== null ? clockText(m.burstTick).time : '';
+        const t = deps.map.transformers[i]!;
+        const rickshaws = z.chargers.filter((c) => c.state !== 'away' && c.state !== 'removed').length;
+        s.banner.textContent = `${t.id} burst at ${at}: ${t.buildings.toLocaleString()} buildings and ${rickshaws} rickshaws without power`;
+        s.banner.classList.remove('ok');
+        s.banner.classList.add('show');
+        s.bannerUntil = now + 6000;
       }
-      for (const sim of sims) sim.step();
+    });
+    if (s.bannerUntil && now > s.bannerUntil) {
+      s.banner.classList.remove('show');
+      s.bannerUntil = 0;
     }
   }
 
-  function render(): void {
-    const lead = sims[0];
-    if (!lead) return;
-    setText(clock, clockLabel(lead.tick));
+  let last = performance.now();
+  let raf = 0;
+  let statsAt = 0;
+  const frame = (now: number): void => {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    if (playing) {
+      carry += dt * speed;
+      let steps = Math.floor(carry);
+      carry -= steps;
+      steps = Math.min(steps, 120);
+      for (let i = 0; i < steps; i++) for (const s of sides) s.district.step();
+    }
+    const tick = sides[0]!.district.tick;
+    const time = tick + (playing ? carry : 0);
+    const c = clockText(tick);
+    clock.innerHTML = `<small>${c.night}</small>${c.time}`;
 
-    const surface = fitCanvas(chart);
-    if (surface) {
-      drawChart(
-        surface,
-        sims.map((s) => ({ mode: s.mode, samples: s.history() })),
-        { events },
+    const series: Series[] = [];
+    for (const s of sides) {
+      const zones = s.district.zones.map((z) => z.snapshot());
+      s.view.draw({ zones, time, now, burstC: deps.burstC });
+      announce(s, zones, now);
+      if (now - statsAt > 200) updateStats(s, zones);
+      s.district.zones.forEach((z, i) =>
+        series.push({ label: `${s.title} T${i + 1}`, color: s.color, dashed: i === 1, samples: z.history() }),
       );
     }
-    hoods.forEach((h, i) => {
-      const sim = sims[i];
-      if (!sim) return;
-      const snap = sim.snapshot();
-      const out = snap.transformer.tripped;
-      const offline = sim.mode === 'central' && !snap.schedulerAlive;
-      h.card.dataset.power = out ? 'out' : 'on';
-      h.card.dataset.scheduler = offline ? 'offline' : 'online';
-      h.powerBadge.hidden = !out;
-      h.schedulerBadge.hidden = !offline;
-      h.score.update(sim.metrics());
-      const st = fitCanvas(h.street);
-      if (st) drawStreet(st, snap, MODE_STYLE[h.mode].colour);
-    });
-  }
+    if (now - statsAt > 200) statsAt = now;
+    const box = chartBox.getBoundingClientRect();
+    drawChart(chart, Math.floor(box.width), Math.floor(box.height), time, series);
+    raf = requestAnimationFrame(frame);
+  };
 
-  function frame(nowMs: number): void {
-    if (failed) return;
-    try {
-      const dt = lastFrame === null ? 0 : Math.min(250, Math.max(0, nowMs - lastFrame));
-      lastFrame = nowMs;
-      if (!paused) {
-        carry += (dt / 1000) * BASE_TICKS_PER_SECOND * speed;
-        const n = Math.min(MAX_TICKS_PER_FRAME, Math.floor(carry));
-        carry = Math.min(carry - n, MAX_TICKS_PER_FRAME);
-        advance(n);
-      }
-      render();
-    } catch (err) {
-      // Nothing may throw in a running demo: stop the loop and say so on screen.
-      failed = true;
-      console.error(err);
-      root.append(el(doc, 'p', { role: 'alert', class: 'rk-error', text: 'The simulation stopped with an error. Reload the page.' }));
-    }
-  }
-
-  // The layout is designed for a 1920×1080 screen. On any screen at least
-  // 900 px wide, scale the whole page so it fits exactly, the same way on a
-  // laptop, a 720p projector or a 4K display. Narrower screens stack instead.
-  const view = doc.defaultView;
-  function fitToScreen(): void {
-    if (!view) return;
-    const w = view.innerWidth;
-    const h = view.innerHeight;
-    const z = w >= 900 && h > 0 ? Math.max(0.5, Math.min(2, w / DESIGN_WIDTH, h / DESIGN_HEIGHT)) : 1;
-    root.style.setProperty('zoom', String(Math.round(z * 1000) / 1000));
-  }
-  fitToScreen();
-  view?.addEventListener('resize', fitToScreen);
-
-  const raf_ = globalThis.requestAnimationFrame?.bind(globalThis);
-  const caf_ = globalThis.cancelAnimationFrame?.bind(globalThis);
-  function loop(now: number): void {
-    if (destroyed) return;
-    frame(now);
-    raf = raf_ ? raf_(loop) : null;
-  }
-
-  rebuild();
-  syncRunControls();
-  render();
-  if (options.autoStart && raf_) raf = raf_(loop);
+  warmUp();
+  layout();
+  raf = requestAnimationFrame(frame);
 
   return {
-    root,
-    get sims() {
-      return sims;
-    },
-    get tick() {
-      return sims[0]?.tick ?? 0;
-    },
-    get paused() {
-      return paused;
-    },
-    get speed() {
-      return speed;
-    },
-    get scenario() {
-      return scenario;
-    },
-    advance,
-    render,
-    frame,
-    send,
-    setSpeed,
-    setPaused,
-    reset,
-    selectScenario,
-    playScript,
     destroy() {
-      destroyed = true;
-      if (raf !== null && caf_) caf_(raf);
-      doc.removeEventListener('keydown', onKey);
-      doc.removeEventListener('fullscreenchange', onFullscreen);
-      view?.removeEventListener('resize', fitToScreen);
-      root.replaceChildren();
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+      style.remove();
     },
   };
 }

@@ -1,307 +1,106 @@
 /**
- * The centrepiece: every neighbourhood's load curve overlaid against the
- * transformer's rating, drawn from history() alone (CONTRACTS §8). The UI
- * keeps no copy of the numbers; each frame re-reads history().
+ * The evidence strip: load on each transformer as a share of its rating
+ * through tonight, for both sides, with the limit as one line.
  */
-import type { FleetMode, Tick, TickSample } from '../contracts';
-import { TICKS_PER_DAY } from '../contracts';
-import { drawMarker, type Surface } from './canvas';
-import { COLOURS, FONT, MODE_STYLE } from './theme';
-import { clockText, hourOfDay } from './time';
+import { TICKS_PER_DAY, type TickSample } from '../contracts';
+import { colors, font } from './theme';
 
-export interface ChartSeries {
-  readonly mode: FleetMode;
+export interface Series {
+  readonly label: string;
+  readonly color: string;
+  readonly dashed: boolean;
   readonly samples: readonly TickSample[];
 }
 
-/** Ticks [from, to) during which a neighbourhood had no power. */
-export interface Span {
-  readonly from: Tick;
-  readonly to: Tick;
-}
+/** Tonight runs 17:00 to 08:00: ticks 300 to 1200 of each day. */
+export const WINDOW_START = 300;
+export const WINDOW_END = 1200;
+const Y_MAX = 1.4;
 
-/** A judge action, marked on the time axis. */
-export interface ChartEvent {
-  readonly tick: Tick;
-  readonly label: string;
-}
-
-/** The chart shows one simulated day, noon to noon, then scrolls. */
-export const WINDOW_TICKS = TICKS_PER_DAY;
-
-/** The visible range of ticks: it fills from the left during the first day, then scrolls. */
-export function chartWindow(series: readonly ChartSeries[], windowTicks = WINDOW_TICKS): { t0: Tick; t1: Tick } {
-  let last = -1;
-  for (const s of series) {
-    const tail = s.samples[s.samples.length - 1];
-    if (tail && tail.tick > last) last = tail.tick;
+export function drawChart(canvas: HTMLCanvasElement, width: number, height: number, time: number, series: readonly Series[]): void {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
   }
-  const t1 = Math.max(windowTicks, last + 1);
-  return { t0: t1 - windowTicks, t1 };
-}
+  const ctx = canvas.getContext('2d')!;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
 
-/** Runs of tripped samples within [t0, t1). */
-export function outageSpans(samples: readonly TickSample[], t0: Tick, t1: Tick): Span[] {
-  const spans: Span[] = [];
-  let start: Tick | null = null;
-  let prev: Tick | null = null;
-  for (const s of samples) {
-    if (s.tick < t0 || s.tick >= t1) continue;
-    if (s.tripped) {
-      if (start === null || (prev !== null && s.tick !== prev + 1)) {
-        if (start !== null && prev !== null) spans.push({ from: start, to: prev + 1 });
-        start = s.tick;
-      }
-      prev = s.tick;
-    } else if (start !== null && prev !== null) {
-      spans.push({ from: start, to: prev + 1 });
-      start = null;
-      prev = null;
-    }
-  }
-  if (start !== null && prev !== null) spans.push({ from: start, to: prev + 1 });
-  return spans;
-}
+  const left = 40;
+  const right = 12;
+  const top = 10;
+  const bottom = 22;
+  const w = width - left - right;
+  const h = height - top - bottom;
+  const day = Math.floor(Math.max(0, time - WINDOW_START + 1) / TICKS_PER_DAY);
+  const t0 = day * TICKS_PER_DAY + WINDOW_START;
+  const t1 = day * TICKS_PER_DAY + WINDOW_END;
+  const x = (t: number): number => left + ((t - t0) / (t1 - t0)) * w;
+  const y = (share: number): number => top + h - (Math.min(Y_MAX, share) / Y_MAX) * h;
 
-/** Smallest of 1, 2, 2.5, 5 times a power of ten that is at least v. */
-export function niceCeil(v: number): number {
-  if (!(v > 0)) return 1;
-  const p = Math.pow(10, Math.floor(Math.log10(v)));
-  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v - 1e-9) return m * p;
-  return 10 * p;
-}
-
-/**
- * The y-axis top. It leaves room well above the rating so the scale does not
- * jump while a night plays, and grows if a curve goes higher.
- */
-export function yMaxFor(series: readonly ChartSeries[], t0: Tick): number {
-  let top = 0;
-  for (const s of series) {
-    for (const p of s.samples) {
-      if (p.tick < t0) continue;
-      top = Math.max(top, p.loadKw * 1.08, p.baseLoadKw * 1.08, p.ratingKw * 1.6);
-    }
-  }
-  return niceCeil(top);
-}
-
-const stepFor = (yMax: number) => {
-  const raw = yMax / 4;
-  const p = Math.pow(10, Math.floor(Math.log10(raw)));
-  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= raw - 1e-9) return m * p;
-  return raw;
-};
-
-export interface ChartDrawOptions {
-  readonly windowTicks?: number;
-  readonly events?: readonly ChartEvent[];
-}
-
-const STRIP_H = 18;
-
-export function drawChart(surface: Surface, series: readonly ChartSeries[], options: ChartDrawOptions = {}): void {
-  const { ctx, width, height } = surface;
-  const { t0, t1 } = chartWindow(series, options.windowTicks);
-  const yMax = yMaxFor(series, t0);
-  const big = width > 900;
-  const fs = big ? 18 : 14;
-
-  const left = big ? 92 : 64;
-  const right = big ? 128 : 84;
-  const top = 18;
-  const stripsH = series.length * STRIP_H + 44;
-  const bottom = (big ? 36 : 30) + stripsH;
-  const pw = Math.max(10, width - left - right);
-  const ph = Math.max(10, height - top - bottom);
-  const x = (t: number) => left + ((t - t0) / (t1 - t0)) * pw;
-  const y = (kw: number) => top + ph - (Math.min(kw, yMax) / yMax) * ph;
-
-  ctx.setLineDash([]);
-  ctx.fillStyle = COLOURS.panel;
-  ctx.fillRect(0, 0, width, height);
-
-  const ref = series[0]?.samples.filter((s) => s.tick >= t0 && s.tick < t1) ?? [];
-
-  // Overload zone: everything above the rating.
-  if (ref.length > 0) {
-    ctx.beginPath();
-    // Before the first sample and after the latest, the zone uses the nearest known rating.
-    ctx.moveTo(x(t0), top);
-    ctx.lineTo(x(t0), y(ref[0]!.ratingKw));
-    for (const s of ref) ctx.lineTo(x(s.tick), y(s.ratingKw));
-    ctx.lineTo(x(t1), y(ref[ref.length - 1]!.ratingKw));
-    ctx.lineTo(x(t1), top);
-    ctx.closePath();
-    ctx.fillStyle = COLOURS.overloadZone;
-    ctx.fill();
-  }
-
-  // Horizontal grid and kW labels.
-  ctx.font = `600 ${fs}px ${FONT}`;
-  ctx.textBaseline = 'middle';
+  // Grid and axis labels.
+  ctx.font = `500 10px ${font}`;
+  ctx.fillStyle = colors.faint;
   ctx.textAlign = 'right';
-  const step = stepFor(yMax);
-  for (let v = 0; v <= yMax + 1e-9; v += step) {
-    ctx.strokeStyle = COLOURS.grid;
-    ctx.lineWidth = 1;
+  ctx.textBaseline = 'middle';
+  ctx.strokeStyle = colors.line;
+  ctx.lineWidth = 1;
+  for (const s of [0, 0.5, 1]) {
     ctx.beginPath();
-    ctx.moveTo(left, y(v));
-    ctx.lineTo(left + pw, y(v));
+    ctx.moveTo(left, Math.round(y(s)) + 0.5);
+    ctx.lineTo(left + w, Math.round(y(s)) + 0.5);
     ctx.stroke();
-    ctx.fillStyle = COLOURS.axis;
-    ctx.fillText(`${Math.round(v)} kW`, left - 10, y(v));
+    ctx.fillText(`${Math.round(s * 100)}%`, left - 6, y(s));
   }
-
-  // Vertical grid every two hours (four on a narrow screen), labelled with the clock.
-  const every = big ? 2 : 4;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  for (let t = Math.ceil(t0 / 60) * 60; t <= t1; t += 60) {
-    if (Math.round(hourOfDay(t)) % every !== 0) continue;
-    ctx.strokeStyle = COLOURS.grid;
-    ctx.beginPath();
-    ctx.moveTo(x(t), top);
-    ctx.lineTo(x(t), top + ph);
-    ctx.stroke();
-    ctx.fillStyle = COLOURS.axis;
-    ctx.fillText(clockText(t), x(t), top + ph + 8);
+  for (let hr = 18; hr <= 32; hr += 2) {
+    const t = day * TICKS_PER_DAY + (hr - 12) * 60;
+    ctx.fillText(`${String(hr % 24).padStart(2, '0')}:00`, x(t), top + h + 6);
   }
 
-  // Household demand, the same night in every neighbourhood.
-  if (ref.length > 1) {
-    ctx.beginPath();
-    ctx.moveTo(x(ref[0]!.tick), y(0));
-    for (const s of ref) ctx.lineTo(x(s.tick), y(s.baseLoadKw));
-    ctx.lineTo(x(ref[ref.length - 1]!.tick), y(0));
-    ctx.closePath();
-    ctx.fillStyle = COLOURS.household;
-    ctx.fill();
-  }
-
-  // Judge actions.
-  ctx.font = `600 ${fs - 2}px ${FONT}`;
+  // The limit.
+  ctx.strokeStyle = colors.hot;
+  ctx.setLineDash([5, 4]);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(left, y(1));
+  ctx.lineTo(left + w, y(1));
+  ctx.stroke();
+  ctx.setLineDash([]);
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  for (const ev of options.events ?? []) {
-    if (ev.tick < t0 || ev.tick > t1) continue;
-    ctx.strokeStyle = COLOURS.axis;
-    ctx.setLineDash([3, 5]);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(x(ev.tick), top);
-    ctx.lineTo(x(ev.tick), top + ph);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = COLOURS.text;
-    ctx.fillText(ev.label, x(ev.tick) + 5, top + 4);
-  }
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = colors.hot;
+  ctx.fillText('transformer limit', left + 6, y(1) - 3);
 
-  // Rating line, labelled with the rating read from history.
-  if (ref.length > 0) {
-    ctx.strokeStyle = COLOURS.rating;
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ref.forEach((s, i) => (i === 0 ? ctx.moveTo(x(s.tick), y(s.ratingKw)) : ctx.lineTo(x(s.tick), y(s.ratingKw))));
-    ctx.stroke();
-  }
-
-  // Load curves.
+  // Curves.
   for (const s of series) {
-    const style = MODE_STYLE[s.mode];
-    const pts = s.samples.filter((p) => p.tick >= t0 && p.tick < t1);
-    if (pts.length === 0) continue;
-    ctx.strokeStyle = style.colour;
-    ctx.lineWidth = style.width;
-    ctx.lineJoin = 'round';
-    ctx.setLineDash(style.dash as number[]);
     ctx.beginPath();
-    pts.forEach((p, i) => (i === 0 ? ctx.moveTo(x(p.tick), y(p.loadKw)) : ctx.lineTo(x(p.tick), y(p.loadKw))));
+    let pen = false;
+    for (const p of s.samples) {
+      if (p.tick < t0 || p.tick > t1) continue;
+      const py = y(p.loadKw / p.ratingKw);
+      if (!pen) {
+        ctx.moveTo(x(p.tick), py);
+        pen = true;
+      } else ctx.lineTo(x(p.tick), py);
+    }
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash(s.dashed ? [6, 4] : []);
     ctx.stroke();
     ctx.setLineDash([]);
-    // Shape markers along the curve every two hours, offset per mode so they do not stack.
-    const offset = (series.indexOf(s) * 40) % 120;
-    for (const p of pts) {
-      if ((p.tick + offset) % 120 === 0) drawMarker(ctx, style.marker, x(p.tick), y(p.loadKw), big ? 6 : 4.5, style.colour);
-    }
   }
 
-  // End labels, nudged apart so they never overlap.
-  const ends = series
-    .map((s) => ({ s, p: s.samples[s.samples.length - 1] }))
-    .filter((e): e is { s: ChartSeries; p: TickSample } => e.p !== undefined && e.p.tick >= t0)
-    .map((e) => ({ ...e, ly: y(e.p.loadKw) }))
-    .sort((a, b) => a.ly - b.ly);
-  const gap = fs + 6;
-  for (let i = 1; i < ends.length; i++) ends[i]!.ly = Math.max(ends[i]!.ly, ends[i - 1]!.ly + gap);
-  // If the stack runs past the bottom of the plot, lift the whole stack.
-  const overflow = (ends[ends.length - 1]?.ly ?? 0) - (top + ph - fs / 2);
-  if (overflow > 0) for (const e of ends) e.ly -= overflow;
-  ctx.font = `800 ${fs}px ${FONT}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  for (const e of ends) {
-    const style = MODE_STYLE[e.s.mode];
-    const ex = x(e.p.tick);
-    drawMarker(ctx, style.marker, ex, y(e.p.loadKw), big ? 8 : 6, style.colour, COLOURS.text);
-    ctx.fillStyle = style.colour;
-    ctx.fillText(style.short, Math.min(ex + 14, left + pw + 10), Math.max(e.ly, top + 8));
+  // Now.
+  if (time >= t0 && time <= t1) {
+    ctx.strokeStyle = 'rgba(29,38,51,0.25)';
+    ctx.beginPath();
+    ctx.moveTo(x(time), top);
+    ctx.lineTo(x(time), top + h);
+    ctx.stroke();
   }
-
-  // Rating and overload labels go on top of the curves so they stay legible.
-  if (ref.length > 0) {
-    const lastRef = ref[ref.length - 1]!;
-    const text = `Transformer rating ${Math.round(lastRef.ratingKw)} kW`;
-    ctx.font = `800 ${fs}px ${FONT}`;
-    const tw = ctx.measureText(text).width;
-    const ly = y(lastRef.ratingKw) - 8;
-    ctx.fillStyle = 'rgba(20, 26, 38, 0.85)';
-    ctx.fillRect(left + 4, ly - fs - 4, tw + 12, fs + 8);
-    ctx.fillStyle = COLOURS.rating;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(text, left + 10, ly + 1);
-    ctx.font = `800 ${fs - 2}px ${FONT}`;
-    ctx.fillStyle = '#ff8fa3';
-    ctx.textBaseline = 'top';
-    ctx.fillText('OVERLOADED above this line', left + 10, top + 6);
-  }
-
-  // Power-out strips, one row per neighbourhood, under the time axis.
-  const stripTop = top + ph + (big ? 36 : 30) + 22;
-  ctx.font = `700 ${fs - 2}px ${FONT}`;
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = COLOURS.axis;
-  ctx.fillText('Power out', left - 10, stripTop - 11);
-  series.forEach((s, i) => {
-    const style = MODE_STYLE[s.mode];
-    const ry = stripTop + i * STRIP_H;
-    ctx.fillStyle = 'rgba(255,255,255,0.04)';
-    ctx.fillRect(left, ry, pw, STRIP_H - 4);
-    ctx.fillStyle = style.colour;
-    ctx.textAlign = 'right';
-    ctx.fillText(style.short, left - 10, ry + (STRIP_H - 4) / 2);
-    for (const span of outageSpans(s.samples, t0, t1)) {
-      const sx = x(span.from);
-      const sw = Math.max(3, x(span.to) - sx);
-      ctx.fillStyle = COLOURS.outage;
-      ctx.fillRect(sx, ry, sw, STRIP_H - 4);
-      // Hatching, so an outage reads without colour.
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(sx, ry, sw, STRIP_H - 4);
-      ctx.clip();
-      ctx.strokeStyle = '#0b0f17';
-      ctx.lineWidth = 2;
-      for (let hx = sx - STRIP_H; hx < sx + sw; hx += 7) {
-        ctx.beginPath();
-        ctx.moveTo(hx, ry + STRIP_H);
-        ctx.lineTo(hx + STRIP_H, ry - 4);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-  });
 }
